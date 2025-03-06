@@ -12,3 +12,101 @@ model User {
   email String  @unique
   name  String?
 }
+
+model Patient {
+  id              String           @id @default(auto()) @map("_id") @db.ObjectId
+  nom             String
+  prenom          String
+  dateNaissance   DateTime
+  numeroSecu      String           @unique
+  dossierMedical  String?
+  transferts      Transfert[]
+  prisesEnCharge  PriseEnCharge[]
+  reservationsLit ReservationLit[]
+}
+
+model Personnel {
+  id             String          @id @default(auto()) @map("_id") @db.ObjectId
+  nom            String
+  prenom         String
+  profession     String
+  serviceId      String          @db.ObjectId
+  service        Service         @relation(fields: [serviceId], references: [id])
+  prisesEnCharge PriseEnCharge[]
+}
+
+model Service {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  nom             String
+  personnel       Personnel[]
+  lits            Lit[]
+  etablissementId String        @db.ObjectId
+  etablissement   Etablissement @relation(fields: [etablissementId], references: [id])
+  materiels       Materiel[]
+
+  transfertsDepart  Transfert[] @relation("Depart")
+  transfertsArrivee Transfert[] @relation("Arrivee")
+}
+
+model Transfert {
+  id                     String         @id @default(auto()) @map("_id") @db.ObjectId
+  patientId              String         @db.ObjectId
+  patient                Patient        @relation(fields: [patientId], references: [id])
+  serviceDepartId        String         @db.ObjectId
+  serviceDepart          Service        @relation("Depart", fields: [serviceDepartId], references: [id])
+  serviceArriveeId       String         @db.ObjectId
+  serviceArrivee         Service        @relation("Arrivee", fields: [serviceArriveeId], references: [id])
+  dateTransfert          DateTime
+  etablissementDepartId  String?        @db.ObjectId
+  etablissementDepart    Etablissement? @relation("EtablissementDepart", fields: [etablissementDepartId], references: [id])
+  etablissementArriveeId String?        @db.ObjectId
+  etablissementArrivee   Etablissement? @relation("EtablissementArrivee", fields: [etablissementArriveeId], references: [id])
+}
+
+model Materiel {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  nom         String
+  description String?
+  quantite    Int
+  serviceId   String  @db.ObjectId
+  service     Service @relation(fields: [serviceId], references: [id])
+}
+
+model PriseEnCharge {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  patientId         String    @db.ObjectId
+  patient           Patient   @relation(fields: [patientId], references: [id])
+  personnelId       String    @db.ObjectId
+  personnel         Personnel @relation(fields: [personnelId], references: [id])
+  datePriseEnCharge DateTime
+}
+
+model Lit {
+  id           String           @id @default(auto()) @map("_id") @db.ObjectId
+  numeroLit    String
+  serviceId    String           @db.ObjectId
+  service      Service          @relation(fields: [serviceId], references: [id])
+  reservations ReservationLit[]
+}
+
+model ReservationLit {
+  id                         String         @id @default(auto()) @map("_id") @db.ObjectId
+  patientId                  String         @db.ObjectId
+  patient                    Patient        @relation(fields: [patientId], references: [id])
+  litId                      String         @db.ObjectId
+  lit                        Lit            @relation(fields: [litId], references: [id])
+  dateArrivee                DateTime
+  dateDepart                 DateTime
+  etablissementDestinationId String?        @db.ObjectId
+  etablissementDestination   Etablissement? @relation(fields: [etablissementDestinationId], references: [id])
+}
+
+model Etablissement {
+  id                String           @id @default(auto()) @map("_id") @db.ObjectId
+  nom               String
+  adresse           String?
+  services          Service[]
+  reservationsLit   ReservationLit[]
+  transfertsDepart  Transfert[]      @relation("EtablissementDepart")
+  transfertsArrivee Transfert[]      @relation("EtablissementArrivee")
+}

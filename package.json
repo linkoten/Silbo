@@ -1,0 +1,14 @@
+{
+  "name": "silbo2",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "test:frontend": "jest frontend",
+    "test:backend": "jest backend"    
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
