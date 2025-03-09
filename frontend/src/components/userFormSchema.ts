@@ -1,4 +1,4 @@
-import * as z from "zod"
+import * as z from "zod";
 
 // Schéma de validation Zod pour les utilisateurs
 export const userFormSchema = z.object({
@@ -8,7 +8,24 @@ export const userFormSchema = z.object({
   email: z.string().email({
     message: "Veuillez entrer une adresse email valide.",
   }),
-})
+});
 
-export type UserFormValues = z.infer<typeof userFormSchema>
+export type UserFormValues = z.infer<typeof userFormSchema>;
 
+export const patientFormSchema = z.object({
+  id: z.string().min(1).optional(),
+  nom: z.string().min(1),
+  prenom: z.string().min(1),
+  dateNaissance: z.date(),
+  numeroSecu: z
+    .string()
+    .min(15, {
+      message: "Le numéro de sécurité sociale doit comporter 15 chiffres.",
+    })
+    .max(15, {
+      message: "Le numéro de sécurité sociale doit comporter 15 chiffres.",
+    }),
+  dossierMedical: z.string().nullable().optional(),
+});
+
+export type PatientFormValues = z.infer<typeof patientFormSchema>;

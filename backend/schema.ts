@@ -17,7 +17,7 @@ export const patientSchema = z.object({
   id: objectId.optional(),
   nom: z.string().min(1),
   prenom: z.string().min(1),
-  dateNaissance: z.coerce.date(),
+  dateNaissance: z.coerce.date(), // Utilisation de coerce.date()
   numeroSecu: z.string().min(1),
   dossierMedical: z.string().nullable().optional(),
 });

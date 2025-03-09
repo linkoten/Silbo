@@ -1,7 +1,8 @@
 import fastify from "fastify";
 import cors from "@fastify/cors";
-import { UserService } from "./lib/user-service";
 import { User } from "@prisma/client";
+import { UserService } from "./lib/user-service";
+import { patientRoutes } from "./routes/patients";
 
 const server = fastify();
 const userService = new UserService();
@@ -12,6 +13,9 @@ async function startServer() {
     origin: true, // Autorise toutes les origines en développement
     methods: ["GET", "POST", "PUT", "DELETE"],
   });
+
+  // Enregistrer les routes des patients
+  await server.register(patientRoutes);
 
   // Route pour créer un utilisateur
   server.post<{
