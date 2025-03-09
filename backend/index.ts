@@ -1,6 +1,6 @@
 import fastify from "fastify";
 import cors from "@fastify/cors";
-import { UserService } from "./user-service";
+import { UserService } from "./lib/user-service";
 import { User } from "@prisma/client";
 
 const server = fastify();

@@ -1,5 +1,5 @@
 import { PrismaClient, User } from "@prisma/client";
-import { createUserSchema } from "./schema";
+import { userSchema } from "../schema";
 
 const prisma = new PrismaClient();
 
@@ -9,7 +9,7 @@ export class UserService {
   // Créer un utilisateur avec validation
   async createUser(data: CreateUserInput) {
     // Valider les données avec Zod
-    const result = createUserSchema.safeParse(data);
+    const result = userSchema.safeParse(data);
 
     if (!result.success) {
       return {
