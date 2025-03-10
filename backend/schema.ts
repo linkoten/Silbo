@@ -14,11 +14,18 @@ export type User = z.infer<typeof userSchema>;
 
 // Patient schema
 export const patientSchema = z.object({
-  id: objectId.optional(),
+  id: z.string().min(1).optional(),
   nom: z.string().min(1),
   prenom: z.string().min(1),
-  dateNaissance: z.coerce.date(), // Utilisation de coerce.date()
-  numeroSecu: z.string().min(1),
+  dateNaissance: z.date(),
+  numeroSecu: z
+    .string()
+    .min(15, {
+      message: "Le numéro de sécurité sociale doit comporter 15 chiffres.",
+    })
+    .max(15, {
+      message: "Le numéro de sécurité sociale doit comporter 15 chiffres.",
+    }),
   dossierMedical: z.string().nullable().optional(),
 });
 
@@ -89,7 +96,7 @@ export const transfertSchema = z.object({
   patientId: objectId,
   serviceDepartId: objectId,
   serviceArriveeId: objectId,
-  dateTransfert: z.coerce.date(),
+  dateTransfert: z.date(),
   etablissementDepartId: objectId.nullable().optional(),
   etablissementArriveeId: objectId.nullable().optional(),
 });

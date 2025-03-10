@@ -12,11 +12,18 @@ exports.userSchema = zod_1.z.object({
 });
 // Patient schema
 exports.patientSchema = zod_1.z.object({
-    id: objectId.optional(),
+    id: zod_1.z.string().min(1).optional(),
     nom: zod_1.z.string().min(1),
     prenom: zod_1.z.string().min(1),
-    dateNaissance: zod_1.z.coerce.date(), // Utilisation de coerce.date()
-    numeroSecu: zod_1.z.string().min(1),
+    dateNaissance: zod_1.z.date(),
+    numeroSecu: zod_1.z
+        .string()
+        .min(15, {
+        message: "Le numéro de sécurité sociale doit comporter 15 chiffres.",
+    })
+        .max(15, {
+        message: "Le numéro de sécurité sociale doit comporter 15 chiffres.",
+    }),
     dossierMedical: zod_1.z.string().nullable().optional(),
 });
 // Service schema (forward declaration due to circular references)
@@ -66,7 +73,7 @@ exports.transfertSchema = zod_1.z.object({
     patientId: objectId,
     serviceDepartId: objectId,
     serviceArriveeId: objectId,
-    dateTransfert: zod_1.z.coerce.date(),
+    dateTransfert: zod_1.z.date(),
     etablissementDepartId: objectId.nullable().optional(),
     etablissementArriveeId: objectId.nullable().optional(),
 });

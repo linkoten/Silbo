@@ -29,3 +29,86 @@ export const patientFormSchema = z.object({
 });
 
 export type PatientFormValues = z.infer<typeof patientFormSchema>;
+
+// Lit schema
+export const litFormSchema = z.object({
+  id: z.string().min(1).optional(),
+  numeroLit: z.string().min(1),
+  serviceId: z.string().min(1),
+});
+export type Lit = z.infer<typeof litFormSchema>;
+
+// Service schema (forward declaration due to circular references)
+export const serviceFormSchema = z.object({
+  id: z.string().min(1).optional(),
+  nom: z.string().min(1),
+  etablissementId: z.string().min(1),
+});
+
+export type Service = z.infer<typeof serviceFormSchema>;
+
+// Personnel schema
+export const personnelFormSchema = z.object({
+  id: z.string().min(1).optional(),
+  nom: z.string().min(1),
+  prenom: z.string().min(1),
+  profession: z.string().min(1),
+  serviceId: z.string().min(1),
+});
+
+export type Personnel = z.infer<typeof personnelFormSchema>;
+
+// Transfert schema
+export const transfertFormSchema = z.object({
+  id: z.string().min(1).optional(),
+  patientId: z.string().min(1),
+  serviceDepartId: z.string().min(1),
+  serviceArriveeId: z.string().min(1),
+  dateTransfert: z.date(),
+  etablissementDepartId: z.string().min(1).optional(),
+  etablissementArriveeId: z.string().min(1).optional(),
+});
+
+export type Transfert = z.infer<typeof transfertFormSchema>;
+
+// Materiel schema
+export const materielFormSchema = z.object({
+  id: z.string().min(1).optional(),
+  nom: z.string().min(1),
+  description: z.string().optional(),
+  quantite: z.number().int().min(0),
+  serviceId: z.string().min(1),
+});
+
+export type Materiel = z.infer<typeof materielFormSchema>;
+
+// Etablissement schema
+export const etablissementFormSchema = z.object({
+  id: z.string().min(1).optional(),
+  nom: z.string().min(1),
+  adresse: z.string().optional(),
+});
+
+export type Etablissement = z.infer<typeof etablissementFormSchema>;
+
+// PriseEnCharge schema
+export const priseEnChargeFormSchema = z.object({
+  id: z.string().min(1).optional(),
+  patientId: z.string().min(1),
+  personnelId: z.string().min(1),
+  datePriseEnCharge: z.coerce.date(),
+});
+
+export type PriseEnCharge = z.infer<typeof priseEnChargeFormSchema>;
+
+// ReservationLit schema
+export const reservationLitFormSchema = z.object({
+  id: z.string().min(1).optional(),
+  patientId: z.string().min(1),
+  litId: z.string().min(1),
+  dateArrivee: z.coerce.date(),
+  dateDepart: z.coerce.date(),
+  etablissementDestinationId: z.string().min(1).optional(),
+});
+
+export type ReservationLit = z.infer<typeof reservationLitFormSchema>;

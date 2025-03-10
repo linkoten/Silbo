@@ -3,14 +3,6 @@ import { Patient } from "../schema";
 
 const prisma = new PrismaClient();
 
-interface PatientData {
-  nom: string;
-  prenom: string;
-  dateNaissance: Date;
-  numeroSecu: string;
-  dossierMedical: string | null | undefined;
-}
-
 interface ServiceResult<T> {
   success: boolean;
   data?: T;
@@ -31,7 +23,7 @@ export class PatientService {
     }
   }
 
-  async createPatient(data: PatientData): Promise<ServiceResult<Patient>> {
+  async createPatient(data: Patient): Promise<ServiceResult<Patient>> {
     try {
       // Validation basique
       if (!data.nom || !data.prenom) {

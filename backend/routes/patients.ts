@@ -1,13 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { PatientService } from "../lib/patients-service";
-
-interface PatientBody {
-  nom: string;
-  prenom: string;
-  dateNaissance: Date;
-  numeroSecu: string;
-  dossierMedical: string | null | undefined;
-}
+import { Patient } from "../schema";
 
 export async function patientRoutes(server: FastifyInstance) {
   const patientService = new PatientService();
@@ -28,7 +21,7 @@ export async function patientRoutes(server: FastifyInstance) {
 
   // Route pour créer un patient
   server.post<{
-    Body: PatientBody;
+    Body: Patient;
   }>("/patients", async (request, reply) => {
     const result = await patientService.createPatient(request.body);
 

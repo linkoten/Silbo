@@ -3,6 +3,14 @@ import cors from "@fastify/cors";
 import { User } from "@prisma/client";
 import { UserService } from "./lib/user-service";
 import { patientRoutes } from "./routes/patients";
+import { litRoutes } from "./routes/lits";
+import { serviceRoutes } from "./routes/services";
+import { etablissementRoutes } from "./routes/etablissement";
+import { reservationLitRoutes } from "./routes/reservationLit";
+import { priseEnChargeRoutes } from "./routes/priseEnCharge";
+import { materielRoutes } from "./routes/materiel";
+import { transfertRoutes } from "./routes/transfert";
+import { personnelRoutes } from "./routes/personnel";
 
 const server = fastify();
 const userService = new UserService();
@@ -14,8 +22,16 @@ async function startServer() {
     methods: ["GET", "POST", "PUT", "DELETE"],
   });
 
-  // Enregistrer les routes des patients
+  // Enregistrer les routes
   await server.register(patientRoutes);
+  await server.register(litRoutes);
+  await server.register(serviceRoutes);
+  await server.register(etablissementRoutes);
+  await server.register(reservationLitRoutes);
+  await server.register(priseEnChargeRoutes);
+  await server.register(materielRoutes);
+  await server.register(transfertRoutes);
+  await server.register(personnelRoutes);
 
   // Route pour créer un utilisateur
   server.post<{
