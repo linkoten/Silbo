@@ -2,15 +2,7 @@ import fastify from "fastify";
 import cors from "@fastify/cors";
 import { User } from "@prisma/client";
 import { UserService } from "./lib/user-service";
-import { patientRoutes } from "./routes/patients";
-import { litRoutes } from "./routes/lits";
-import { serviceRoutes } from "./routes/services";
-import { etablissementRoutes } from "./routes/etablissement";
-import { reservationLitRoutes } from "./routes/reservationLit";
-import { priseEnChargeRoutes } from "./routes/priseEnCharge";
-import { materielRoutes } from "./routes/materiel";
-import { transfertRoutes } from "./routes/transfert";
-import { personnelRoutes } from "./routes/personnel";
+import { generateModelRoutes } from "./lib/route-generator";
 
 const server = fastify();
 const userService = new UserService();
@@ -22,16 +14,23 @@ async function startServer() {
     methods: ["GET", "POST", "PUT", "DELETE"],
   });
 
-  // Enregistrer les routes
-  await server.register(patientRoutes);
-  await server.register(litRoutes);
-  await server.register(serviceRoutes);
-  await server.register(etablissementRoutes);
-  await server.register(reservationLitRoutes);
-  await server.register(priseEnChargeRoutes);
-  await server.register(materielRoutes);
-  await server.register(transfertRoutes);
-  await server.register(personnelRoutes);
+  // Enregistrer les routes dynamiques pour chaque modèle
+  const models = [
+    { modelName: "patient", pluralName: "patients" },
+    { modelName: "lit", pluralName: "lits" },
+    { modelName: "service", pluralName: "services" },
+    { modelName: "etablissement", pluralName: "etablissements" },
+    { modelName: "reservationLit", pluralName: "reservationsLit" },
+    { modelName: "priseEnCharge", pluralName: "prisesEnCharge" },
+    { modelName: "materiel", pluralName: "materiels" },
+    { modelName: "transfert", pluralName: "transferts" },
+    { modelName: "personnel", pluralName: "personnels" },
+  ];
+
+  // Enregistrer les routes pour chaque modèle
+  for (const model of models) {
+    await generateModelRoutes(server, model);
+  }
 
   // Route pour créer un utilisateur
   server.post<{

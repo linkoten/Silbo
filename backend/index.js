@@ -8,15 +8,7 @@ exports.startServer = startServer;
 const fastify_1 = __importDefault(require("fastify"));
 const cors_1 = __importDefault(require("@fastify/cors"));
 const user_service_1 = require("./lib/user-service");
-const patients_1 = require("./routes/patients");
-const lits_1 = require("./routes/lits");
-const services_1 = require("./routes/services");
-const etablissement_1 = require("./routes/etablissement");
-const reservationLit_1 = require("./routes/reservationLit");
-const priseEnCharge_1 = require("./routes/priseEnCharge");
-const materiel_1 = require("./routes/materiel");
-const transfert_1 = require("./routes/transfert");
-const personnel_1 = require("./routes/personnel");
+const route_generator_1 = require("./lib/route-generator");
 const server = (0, fastify_1.default)();
 exports.server = server;
 const userService = new user_service_1.UserService();
@@ -26,16 +18,22 @@ async function startServer() {
         origin: true, // Autorise toutes les origines en développement
         methods: ["GET", "POST", "PUT", "DELETE"],
     });
-    // Enregistrer les routes
-    await server.register(patients_1.patientRoutes);
-    await server.register(lits_1.litRoutes);
-    await server.register(services_1.serviceRoutes);
-    await server.register(etablissement_1.etablissementRoutes);
-    await server.register(reservationLit_1.reservationLitRoutes);
-    await server.register(priseEnCharge_1.priseEnChargeRoutes);
-    await server.register(materiel_1.materielRoutes);
-    await server.register(transfert_1.transfertRoutes);
-    await server.register(personnel_1.personnelRoutes);
+    // Enregistrer les routes dynamiques pour chaque modèle
+    const models = [
+        { modelName: "patient", pluralName: "patients" },
+        { modelName: "lit", pluralName: "lits" },
+        { modelName: "service", pluralName: "services" },
+        { modelName: "etablissement", pluralName: "etablissements" },
+        { modelName: "reservationLit", pluralName: "reservationsLit" },
+        { modelName: "priseEnCharge", pluralName: "prisesEnCharge" },
+        { modelName: "materiel", pluralName: "materiels" },
+        { modelName: "transfert", pluralName: "transferts" },
+        { modelName: "personnel", pluralName: "personnels" },
+    ];
+    // Enregistrer les routes pour chaque modèle
+    for (const model of models) {
+        await (0, route_generator_1.generateModelRoutes)(server, model);
+    }
     // Route pour créer un utilisateur
     server.post("/users", async (request, reply) => {
         const result = await userService.createUser(request.body);
