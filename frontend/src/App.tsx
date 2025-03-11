@@ -20,6 +20,15 @@ import CreateReservationLitPage from "./components/CreateReservationPage.js";
 import EtablissementsPage from "./pages/EtablissementsPage.js";
 import CreateEtablissementPage from "./components/CreateEtablissementPage.js";
 import { NavBar } from "./components/NavBar.js";
+import PatientDetailPage from "./pages/PatientDetailPage.js";
+import LitDetailPage from "./pages/LitDetailPage.js";
+import ServiceDetailPage from "./pages/ServiceDetailPage.js";
+import EtablissementDetailPage from "./pages/EtablissementDetailPage.js";
+import MaterielDetailPage from "./pages/MaterielDetailPage.js";
+import PersonnelDetailPage from "./pages/PersonnelDetailPage.js";
+import PriseEnChargeDetailPage from "./pages/PriseEnChargeDetailPage.js";
+import ReservationLitDetailPage from "./pages/ReservationLitDetailPage.js";
+import TransfertDetailPage from "./pages/TransfertDetailPage.js";
 
 function App() {
   return (
@@ -32,6 +41,24 @@ function App() {
           <main className="p-6 lg:p-8">
             <Routes>
               <Route path="/patients" element={<PatientsPage />} />
+              <Route path="/patients/:id" element={<PatientDetailPage />} />
+              <Route path="/lits/:id" element={<LitDetailPage />} />
+              <Route path="/services/:id" element={<ServiceDetailPage />} />
+              <Route
+                path="/etablissements/:id"
+                element={<EtablissementDetailPage />}
+              />
+              <Route path="/materiels/:id" element={<MaterielDetailPage />} />
+              <Route path="/personnels/:id" element={<PersonnelDetailPage />} />
+              <Route
+                path="/prisesEnCharge/:id"
+                element={<PriseEnChargeDetailPage />}
+              />
+              <Route
+                path="/reservationsLit/:id"
+                element={<ReservationLitDetailPage />}
+              />
+              <Route path="/transferts/:id" element={<TransfertDetailPage />} />
               <Route path="/lits" element={<LitsPage />} />
               <Route path="/services" element={<ServicesPage />} />
               <Route path="/services/create" element={<CreateServicePage />} />
