@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
-import { Personnel } from "../schema";
 import { PersonnelService } from "../lib/personnels-service";
+import { Personnel } from "@prisma/client";
 
 export async function personnelRoutes(server: FastifyInstance) {
   const personnelService = new PersonnelService();

@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PatientService = void 0;
 const client_1 = require("@prisma/client");
+const validation_utils_1 = require("../validation-utils");
+const schema_1 = require("./schema");
 const prisma = new client_1.PrismaClient();
 class PatientService {
     async getAllPatients() {
@@ -19,21 +21,23 @@ class PatientService {
     }
     async createPatient(data) {
         try {
-            // Validation basique
-            if (!data.nom || !data.prenom) {
-                return {
-                    success: false,
-                    error: "Le nom et le prénom sont requis",
-                };
-            }
-            console.log(data);
+            // Validation avec le schéma Zod
+            const validatedData = await (0, validation_utils_1.validateData)(schema_1.CreatePatientSchema, data);
             const patient = await prisma.patient.create({
                 data: {
-                    nom: data.nom,
-                    prenom: data.prenom,
-                    dateNaissance: data.dateNaissance,
-                    numeroSecu: data.numeroSecu,
-                    dossierMedical: data.dossierMedical,
+                    nom: validatedData.nom,
+                    prenom: validatedData.prenom,
+                    dateNaissance: validatedData.dateNaissance,
+                    adresse: validatedData.adresse,
+                    telephone: validatedData.telephone,
+                    email: validatedData.email,
+                    numeroSecu: validatedData.numeroSecu,
+                    groupeSanguin: validatedData.groupeSanguin,
+                    allergie: validatedData.allergie,
+                    antecedents: validatedData.antecedents,
+                    dateAdmission: validatedData.dateAdmission,
+                    dateSortie: validatedData.dateSortie,
+                    statut: validatedData.statut,
                 },
             });
             return { success: true, data: patient };

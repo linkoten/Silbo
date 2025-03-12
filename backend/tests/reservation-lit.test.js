@@ -11,9 +11,9 @@ var __rest = (this && this.__rest) || function (s, e) {
     return t;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const schema_1 = require("../schema");
 const validation_utils_1 = require("../validation-utils");
-describe("ReservationLit Schema", () => {
+const schema_1 = require("../lib/schema");
+describe("ReservationLit Schema Validation", () => {
     const validReservationLitData = {
         patientId: "507f1f77bcf86cd799439011",
         litId: "507f1f77bcf86cd799439022",
@@ -22,47 +22,47 @@ describe("ReservationLit Schema", () => {
         etablissementDestinationId: "507f1f77bcf86cd799439033",
     };
     test("validates a correct reservationLit", async () => {
-        const result = await (0, validation_utils_1.validateData)(schema_1.reservationLitSchema, validReservationLitData);
+        const result = await (0, validation_utils_1.validateData)(schema_1.ReservationLitSchema, validReservationLitData);
         expect(result).toEqual(validReservationLitData);
     });
     test("validates a reservationLit with id", async () => {
         const reservationLitWithId = Object.assign(Object.assign({}, validReservationLitData), { id: "507f1f77bcf86cd799439044" });
-        const result = await (0, validation_utils_1.validateData)(schema_1.reservationLitSchema, reservationLitWithId);
+        const result = await (0, validation_utils_1.validateData)(schema_1.ReservationLitSchema, reservationLitWithId);
         expect(result).toEqual(reservationLitWithId);
     });
     test("handles string date conversion", async () => {
         const reservationLitWithStringDates = Object.assign(Object.assign({}, validReservationLitData), { dateArrivee: "2023-03-01T14:00:00Z", dateDepart: "2023-03-05T11:00:00Z" });
-        const result = await (0, validation_utils_1.validateData)(schema_1.reservationLitSchema, reservationLitWithStringDates);
+        const result = await (0, validation_utils_1.validateData)(schema_1.ReservationLitSchema, reservationLitWithStringDates);
         expect(result.dateArrivee).toBeInstanceOf(Date);
         expect(result.dateDepart).toBeInstanceOf(Date);
     });
     test("fails with missing required fields", async () => {
         const { litId } = validReservationLitData, invalidReservationLit = __rest(validReservationLitData, ["litId"]);
-        await expect((0, validation_utils_1.validateData)(schema_1.reservationLitSchema, invalidReservationLit)).rejects.toThrow();
+        await expect((0, validation_utils_1.validateData)(schema_1.ReservationLitSchema, invalidReservationLit)).rejects.toThrow();
     });
     test("fails with invalid date format", async () => {
         const invalidReservationLit = Object.assign(Object.assign({}, validReservationLitData), { dateArrivee: "not-a-date" });
-        await expect((0, validation_utils_1.validateData)(schema_1.reservationLitSchema, invalidReservationLit)).rejects.toThrow();
+        await expect((0, validation_utils_1.validateData)(schema_1.ReservationLitSchema, invalidReservationLit)).rejects.toThrow();
     });
     // Create schema tests
-    test("createReservationLitSchema rejects id field", async () => {
+    test("CreateReservationLitSchema rejects id field", async () => {
         const reservationLitWithId = Object.assign(Object.assign({}, validReservationLitData), { id: "507f1f77bcf86cd799439044" });
-        const result = await (0, validation_utils_1.validateData)(schema_1.createReservationLitSchema, reservationLitWithId);
+        const result = await (0, validation_utils_1.validateData)(schema_1.CreateReservationLitSchema, reservationLitWithId);
         expect(result).not.toHaveProperty("id");
     });
     // Update schema tests
-    test("updateReservationLitSchema requires id field", async () => {
+    test("UpdateReservationLitSchema requires id field", async () => {
         const reservationLitWithoutId = {
             dateDepart: new Date("2023-03-06T10:00:00Z"),
         };
-        await expect((0, validation_utils_1.validateData)(schema_1.updateReservationLitSchema, reservationLitWithoutId)).rejects.toThrow();
+        await expect((0, validation_utils_1.validateData)(schema_1.UpdateReservationLitSchema, reservationLitWithoutId)).rejects.toThrow();
     });
-    test("updateReservationLitSchema allows partial updates", async () => {
+    test("UpdateReservationLitSchema allows partial updates", async () => {
         const partialUpdate = {
             id: "507f1f77bcf86cd799439044",
             dateDepart: new Date("2023-03-06T10:00:00Z"),
         };
-        const result = await (0, validation_utils_1.validateData)(schema_1.updateReservationLitSchema, partialUpdate);
+        const result = await (0, validation_utils_1.validateData)(schema_1.UpdateReservationLitSchema, partialUpdate);
         expect(result).toEqual(partialUpdate);
     });
 });

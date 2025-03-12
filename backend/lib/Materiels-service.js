@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MaterielService = void 0;
 const client_1 = require("@prisma/client");
+const validation_utils_1 = require("../validation-utils");
+const schema_1 = require("./schema");
 const prisma = new client_1.PrismaClient();
 class MaterielService {
     async getAllMateriels() {
@@ -19,20 +21,21 @@ class MaterielService {
     }
     async createMateriel(data) {
         try {
-            // Validation basique
-            if (!data.nom) {
-                return {
-                    success: false,
-                    error: "Un numéro doit être attribué au materiel",
-                };
-            }
-            console.log(data);
+            // Validation avec le schéma Zod
+            const validatedData = await (0, validation_utils_1.validateData)(schema_1.CreateMaterielSchema, data);
             const materiel = await prisma.materiel.create({
                 data: {
-                    nom: data.nom,
-                    description: data.description,
-                    quantite: data.quantite,
-                    serviceId: data.serviceId,
+                    nom: validatedData.nom,
+                    description: validatedData.description,
+                    quantite: validatedData.quantite,
+                    type: validatedData.type,
+                    marque: validatedData.marque,
+                    modele: validatedData.modele,
+                    numeroSerie: validatedData.numeroSerie,
+                    dateAchat: validatedData.dateAchat,
+                    dateMaintenance: validatedData.dateMaintenance,
+                    statut: validatedData.statut || "En Service",
+                    serviceId: validatedData.serviceId,
                 },
             });
             return { success: true, data: materiel };

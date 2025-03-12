@@ -1,5 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-import { PriseEnCharge } from "../schema";
+import { PriseEnCharge, PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -42,9 +41,14 @@ export class PriseEnChargeService {
 
       const priseEnCharge = await prisma.priseEnCharge.create({
         data: {
-          patientId: data.patientId,
           personnelId: data.personnelId,
-          datePriseEnCharge: data.datePriseEnCharge,
+          patientId: data.patientId,
+          dateDebut: data.dateDebut,
+          dateFin: data.dateFin,
+          description: data.description,
+          diagnostic: data.diagnostic,
+          traitement: data.traitement,
+          notes: data.notes,
         },
       });
 

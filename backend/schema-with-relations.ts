@@ -1,70 +1,70 @@
 import { z } from "zod";
 import {
-  patientSchema,
-  personnelSchema,
-  serviceSchema,
-  transfertSchema,
-  materielSchema,
-  priseEnChargeSchema,
-  litSchema,
-  reservationLitSchema,
-  etablissementSchema,
-} from "./schema";
+  PatientSchema,
+  PersonnelSchema,
+  ServiceSchema,
+  TransfertSchema,
+  MaterielSchema,
+  PriseEnChargeSchema,
+  LitSchema,
+  ReservationLitSchema,
+  EtablissementSchema,
+} from "./lib/schema";
 
 // Schemas with relations included
-export const patientWithRelationsSchema = patientSchema.extend({
-  transferts: z.array(transfertSchema).optional(),
-  prisesEnCharge: z.array(priseEnChargeSchema).optional(),
-  reservationsLit: z.array(reservationLitSchema).optional(),
+export const patientWithRelationsSchema = PatientSchema.extend({
+  transferts: z.array(TransfertSchema).optional(),
+  prisesEnCharge: z.array(PriseEnChargeSchema).optional(),
+  reservationsLit: z.array(ReservationLitSchema).optional(),
 });
 
-export const personnelWithRelationsSchema = personnelSchema.extend({
-  service: serviceSchema.optional(),
-  prisesEnCharge: z.array(priseEnChargeSchema).optional(),
+export const personnelWithRelationsSchema = PersonnelSchema.extend({
+  service: ServiceSchema.optional(),
+  prisesEnCharge: z.array(PriseEnChargeSchema).optional(),
 });
 
-export const serviceWithRelationsSchema = serviceSchema.extend({
-  personnel: z.array(personnelSchema).optional(),
-  lits: z.array(litSchema).optional(),
-  etablissement: etablissementSchema.optional(),
-  materiels: z.array(materielSchema).optional(),
-  transfertsDepart: z.array(transfertSchema).optional(),
-  transfertsArrivee: z.array(transfertSchema).optional(),
+export const serviceWithRelationsSchema = ServiceSchema.extend({
+  personnel: z.array(PersonnelSchema).optional(),
+  lits: z.array(LitSchema).optional(),
+  etablissement: EtablissementSchema.optional(),
+  materiels: z.array(MaterielSchema).optional(),
+  transfertsDepart: z.array(TransfertSchema).optional(),
+  transfertsArrivee: z.array(TransfertSchema).optional(),
 });
 
-export const transfertWithRelationsSchema = transfertSchema.extend({
-  patient: patientSchema.optional(),
-  serviceDepart: serviceSchema.optional(),
-  serviceArrivee: serviceSchema.optional(),
-  etablissementDepart: etablissementSchema.nullable().optional(),
-  etablissementArrivee: etablissementSchema.nullable().optional(),
+export const transfertWithRelationsSchema = TransfertSchema.extend({
+  patient: PatientSchema.optional(),
+  serviceDepart: ServiceSchema.optional(),
+  serviceArrivee: ServiceSchema.optional(),
+  etablissementDepart: EtablissementSchema.nullable().optional(),
+  etablissementArrivee: EtablissementSchema.nullable().optional(),
 });
 
-export const materielWithRelationsSchema = materielSchema.extend({
-  service: serviceSchema.optional(),
+export const materielWithRelationsSchema = MaterielSchema.extend({
+  service: ServiceSchema.optional(),
 });
 
-export const priseEnChargeWithRelationsSchema = priseEnChargeSchema.extend({
-  patient: patientSchema.optional(),
-  personnel: personnelSchema.optional(),
+export const priseEnChargeWithRelationsSchema = PriseEnChargeSchema.extend({
+  patient: PatientSchema.optional(),
+  personnel: PersonnelSchema.optional(),
 });
 
-export const litWithRelationsSchema = litSchema.extend({
-  service: serviceSchema.optional(),
-  reservations: z.array(reservationLitSchema).optional(),
+export const litWithRelationsSchema = LitSchema.extend({
+  service: ServiceSchema.optional(),
+  reservations: z.array(ReservationLitSchema).optional(),
 });
 
-export const reservationLitWithRelationsSchema = reservationLitSchema.extend({
-  patient: patientSchema.optional(),
-  lit: litSchema.optional(),
-  etablissementDestination: etablissementSchema.nullable().optional(),
+export const reservationLitWithRelationsSchema = ReservationLitSchema.extend({
+  patient: PatientSchema.optional(),
+  lit: LitSchema.optional(),
+  etablissementDestination: EtablissementSchema.nullable().optional(),
 });
 
-export const etablissementWithRelationsSchema = etablissementSchema.extend({
-  services: z.array(serviceSchema).optional(),
-  reservationsLit: z.array(reservationLitSchema).optional(),
-  transfertsDepart: z.array(transfertSchema).optional(),
-  transfertsArrivee: z.array(transfertSchema).optional(),
+export const etablissementWithRelationsSchema = EtablissementSchema.extend({
+  services: z.array(ServiceSchema).optional(),
+  reservationsLit: z.array(ReservationLitSchema).optional(),
+  transfertsDepart: z.array(TransfertSchema).optional(),
+  transfertsArrivee: z.array(TransfertSchema).optional(),
 });
 
 // Types with relations

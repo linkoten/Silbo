@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
-import { ReservationLit } from "../schema";
 import { ReservationLitService } from "../lib/reservationsLits-service";
+import { ReservationLit } from "@prisma/client";
 
 export async function reservationLitRoutes(server: FastifyInstance) {
   const reservationLitService = new ReservationLitService();

@@ -6,7 +6,7 @@ const zod_1 = require("zod");
 exports.UserSchema = zod_1.z.object({
     id: zod_1.z.string().optional(),
     email: zod_1.z.string().email({ message: "Format d'email invalide" }),
-    name: zod_1.z.string().optional(),
+    name: zod_1.z.string().nullable(),
 });
 // Schéma pour Patient
 exports.PatientSchema = zod_1.z.object({
@@ -14,44 +14,44 @@ exports.PatientSchema = zod_1.z.object({
     nom: zod_1.z.string().min(1, { message: "Le nom est requis" }),
     prenom: zod_1.z.string().min(1, { message: "Le prénom est requis" }),
     dateNaissance: zod_1.z.coerce.date(),
-    adresse: zod_1.z.string().optional(),
-    telephone: zod_1.z.string().optional(),
-    email: zod_1.z.string().email({ message: "Format d'email invalide" }).optional(),
-    numeroSecu: zod_1.z.string().optional(),
-    groupeSanguin: zod_1.z.string().optional(),
-    allergie: zod_1.z.string().optional(),
-    antecedents: zod_1.z.string().optional(),
-    dateAdmission: zod_1.z.coerce.date().optional(),
-    dateSortie: zod_1.z.coerce.date().optional(),
-    statut: zod_1.z.string().default("Hospitalisé"),
+    adresse: zod_1.z.string().nullable(),
+    telephone: zod_1.z.string().nullable(),
+    email: zod_1.z.string().email({ message: "Format d'email invalide" }).nullable(),
+    numeroSecu: zod_1.z.string().nullable(),
+    groupeSanguin: zod_1.z.string().nullable(),
+    allergie: zod_1.z.string().nullable(),
+    antecedents: zod_1.z.string().nullable(),
+    dateAdmission: zod_1.z.coerce.date().nullable(),
+    dateSortie: zod_1.z.coerce.date().nullable(),
+    statut: zod_1.z.string().nullable().default("Hospitalisé"),
 });
 // Schéma pour Personnel
 exports.PersonnelSchema = zod_1.z.object({
     id: zod_1.z.string().optional(),
     nom: zod_1.z.string().min(1, { message: "Le nom est requis" }),
     prenom: zod_1.z.string().min(1, { message: "Le prénom est requis" }),
-    dateNaissance: zod_1.z.coerce.date().optional(),
-    email: zod_1.z.string().email({ message: "Format d'email invalide" }).optional(),
-    telephone: zod_1.z.string().optional(),
+    dateNaissance: zod_1.z.coerce.date().nullable(),
+    email: zod_1.z.string().email({ message: "Format d'email invalide" }).nullable(),
+    telephone: zod_1.z.string().nullable(),
     profession: zod_1.z.string().min(1, { message: "La profession est requise" }),
-    specialite: zod_1.z.string().optional(),
-    matricule: zod_1.z.string().optional(),
-    serviceId: zod_1.z.string().optional(),
-    dateEmbauche: zod_1.z.coerce.date().optional(),
-    statut: zod_1.z.string().default("Actif"),
+    specialite: zod_1.z.string().nullable(),
+    matricule: zod_1.z.string().nullable(),
+    serviceId: zod_1.z.string().nullable(),
+    dateEmbauche: zod_1.z.coerce.date().nullable(),
+    statut: zod_1.z.string().nullable().default("Actif"),
 });
 // Schéma pour Service
 exports.ServiceSchema = zod_1.z.object({
     id: zod_1.z.string().optional(),
     nom: zod_1.z.string().min(1, { message: "Le nom du service est requis" }),
-    description: zod_1.z.string().optional(),
+    description: zod_1.z.string().nullable(),
     etablissementId: zod_1.z.string().min(1, { message: "L'établissement est requis" }),
-    etage: zod_1.z.string().optional(),
-    aile: zod_1.z.string().optional(),
+    etage: zod_1.z.string().nullable(),
+    aile: zod_1.z.string().nullable(),
     capacite: zod_1.z.number().int().nonnegative().default(0),
-    statut: zod_1.z.string().default("Actif"),
-    specialite: zod_1.z.string().optional(),
-    responsableId: zod_1.z.string().optional(),
+    statut: zod_1.z.string().nullable().default("Actif"),
+    specialite: zod_1.z.string().nullable(),
+    responsableId: zod_1.z.string().nullable(),
 });
 // Schéma pour Transfert
 exports.TransfertSchema = zod_1.z.object({
@@ -63,26 +63,26 @@ exports.TransfertSchema = zod_1.z.object({
         .string()
         .min(1, { message: "Le service d'arrivée est requis" }),
     patientId: zod_1.z.string().min(1, { message: "Le patient est requis" }),
-    motif: zod_1.z.string().optional(),
+    motif: zod_1.z.string().nullable(),
     date: zod_1.z.coerce.date().default(() => new Date()),
-    statut: zod_1.z.string().default("Planifié"),
-    autorisePar: zod_1.z.string().optional(),
-    realiseePar: zod_1.z.string().optional(),
+    statut: zod_1.z.string().nullable().default("Planifié"),
+    autorisePar: zod_1.z.string().nullable(),
+    realiseePar: zod_1.z.string().nullable(),
 });
 // Schéma pour Materiel
 exports.MaterielSchema = zod_1.z.object({
     id: zod_1.z.string().optional(),
     nom: zod_1.z.string().min(1, { message: "Le nom du matériel est requis" }),
-    description: zod_1.z.string().optional(),
+    description: zod_1.z.string().nullable(),
     quantite: zod_1.z.number().int().positive().default(1),
-    type: zod_1.z.string().optional(),
-    marque: zod_1.z.string().optional(),
-    modele: zod_1.z.string().optional(),
-    numeroSerie: zod_1.z.string().optional(),
-    dateAchat: zod_1.z.coerce.date().optional(),
-    dateMaintenance: zod_1.z.coerce.date().optional(),
-    statut: zod_1.z.string().default("En Service"),
-    serviceId: zod_1.z.string().optional(),
+    type: zod_1.z.string().nullable(),
+    marque: zod_1.z.string().nullable(),
+    modele: zod_1.z.string().nullable(),
+    numeroSerie: zod_1.z.string().nullable(),
+    dateAchat: zod_1.z.coerce.date().nullable(),
+    dateMaintenance: zod_1.z.coerce.date().nullable(),
+    statut: zod_1.z.string().nullable().default("En Service"),
+    serviceId: zod_1.z.string().nullable(),
 });
 // Schéma pour PriseEnCharge
 exports.PriseEnChargeSchema = zod_1.z.object({
@@ -90,22 +90,22 @@ exports.PriseEnChargeSchema = zod_1.z.object({
     personnelId: zod_1.z.string().min(1, { message: "Le personnel est requis" }),
     patientId: zod_1.z.string().min(1, { message: "Le patient est requis" }),
     dateDebut: zod_1.z.coerce.date().default(() => new Date()),
-    dateFin: zod_1.z.coerce.date().optional(),
-    description: zod_1.z.string().optional(),
-    diagnostic: zod_1.z.string().optional(),
-    traitement: zod_1.z.string().optional(),
-    notes: zod_1.z.string().optional(),
+    dateFin: zod_1.z.coerce.date().nullable(),
+    description: zod_1.z.string().nullable(),
+    diagnostic: zod_1.z.string().nullable(),
+    traitement: zod_1.z.string().nullable(),
+    notes: zod_1.z.string().nullable(),
 });
 // Schéma pour Lit
 exports.LitSchema = zod_1.z.object({
     id: zod_1.z.string().optional(),
     numeroLit: zod_1.z.string().min(1, { message: "Le numéro du lit est requis" }),
-    type: zod_1.z.string().optional(),
-    statut: zod_1.z.string().default("Disponible"),
+    type: zod_1.z.string().nullable(),
+    statut: zod_1.z.string().nullable().default("Disponible"),
     serviceId: zod_1.z.string().min(1, { message: "Le service est requis" }),
-    chambre: zod_1.z.string().optional(),
-    etage: zod_1.z.string().optional(),
-    patientId: zod_1.z.string().optional(),
+    chambre: zod_1.z.string().nullable(),
+    etage: zod_1.z.string().nullable(),
+    patientId: zod_1.z.string().nullable(),
 });
 // Schéma pour ReservationLit
 exports.ReservationLitSchema = zod_1.z.object({
@@ -114,7 +114,7 @@ exports.ReservationLitSchema = zod_1.z.object({
     litId: zod_1.z.string().min(1, { message: "Le lit est requis" }),
     dateArrivee: zod_1.z.coerce.date(),
     dateDepart: zod_1.z.coerce.date(),
-    etablissementDestinationId: zod_1.z.string().optional(),
+    etablissementDestinationId: zod_1.z.string().nullable(),
 });
 // Schéma pour Etablissement
 exports.EtablissementSchema = zod_1.z.object({
@@ -122,26 +122,26 @@ exports.EtablissementSchema = zod_1.z.object({
     nom: zod_1.z.string().min(1, { message: "Le nom de l'établissement est requis" }),
     adresse: zod_1.z.string().min(1, { message: "L'adresse est requise" }),
     capacite: zod_1.z.number().int().nonnegative().default(0),
-    telephone: zod_1.z.string().optional(),
-    email: zod_1.z.string().email({ message: "Format d'email invalide" }).optional(),
-    siteWeb: zod_1.z.string().url({ message: "URL invalide" }).optional(),
-    codePostal: zod_1.z.string().optional(),
-    ville: zod_1.z.string().optional(),
+    telephone: zod_1.z.string().nullable(),
+    email: zod_1.z.string().email({ message: "Format d'email invalide" }).nullable(),
+    siteWeb: zod_1.z.string().url({ message: "URL invalide" }).nullable(),
+    codePostal: zod_1.z.string().nullable(),
+    ville: zod_1.z.string().nullable(),
     pays: zod_1.z.string().default("France"),
-    statut: zod_1.z.string().default("Actif"),
-    typology: zod_1.z.string().optional(),
+    statut: zod_1.z.string().nullable().default("Actif"),
+    typology: zod_1.z.string().nullable(),
 });
 // Schéma pour Medicament
 exports.MedicamentSchema = zod_1.z.object({
     id: zod_1.z.string().optional(),
     nom: zod_1.z.string().min(1, { message: "Le nom du médicament est requis" }),
-    dosage: zod_1.z.string().optional(),
-    description: zod_1.z.string().optional(),
-    categorie: zod_1.z.string().optional(),
-    fabricant: zod_1.z.string().optional(),
+    dosage: zod_1.z.string().nullable(),
+    description: zod_1.z.string().nullable(),
+    categorie: zod_1.z.string().nullable(),
+    fabricant: zod_1.z.string().nullable(),
     stockActuel: zod_1.z.number().int().nonnegative().default(0),
     stockMinimum: zod_1.z.number().int().nonnegative().default(5),
-    datePeremption: zod_1.z.coerce.date().optional(),
+    datePeremption: zod_1.z.coerce.date().nullable(),
 });
 // Schéma pour Document
 exports.DocumentSchema = zod_1.z.object({
@@ -150,11 +150,11 @@ exports.DocumentSchema = zod_1.z.object({
     typeDocument: zod_1.z
         .string()
         .min(1, { message: "Le type de document est requis" }),
-    contenu: zod_1.z.string().optional(),
-    url: zod_1.z.string().optional(),
-    patientId: zod_1.z.string().optional(),
-    personnelId: zod_1.z.string().optional(),
-    serviceId: zod_1.z.string().optional(),
+    contenu: zod_1.z.string().nullable(),
+    url: zod_1.z.string().nullable(),
+    patientId: zod_1.z.string().nullable(),
+    personnelId: zod_1.z.string().nullable(),
+    serviceId: zod_1.z.string().nullable(),
 });
 // Schémas pour les créations (sans id obligatoire)
 exports.CreateUserSchema = exports.UserSchema.omit({ id: true });

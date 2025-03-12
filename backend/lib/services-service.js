@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ServiceService = void 0;
 const client_1 = require("@prisma/client");
+const validation_utils_1 = require("../validation-utils");
+const schema_1 = require("./schema");
 const prisma = new client_1.PrismaClient();
 class ServiceService {
     async getAllServices() {
@@ -19,18 +21,19 @@ class ServiceService {
     }
     async createService(data) {
         try {
-            // Validation basique
-            if (!data.nom) {
-                return {
-                    success: false,
-                    error: "Un nom doit être attribué au service",
-                };
-            }
-            console.log(data);
+            // Validation avec le schéma Zod
+            const validatedData = await (0, validation_utils_1.validateData)(schema_1.CreateServiceSchema, data);
             const service = await prisma.service.create({
                 data: {
-                    nom: data.nom,
-                    etablissementId: data.etablissementId,
+                    nom: validatedData.nom,
+                    description: validatedData.description,
+                    etablissementId: validatedData.etablissementId,
+                    etage: validatedData.etage,
+                    aile: validatedData.aile,
+                    capacite: validatedData.capacite,
+                    statut: validatedData.statut || "Actif",
+                    specialite: validatedData.specialite,
+                    responsableId: validatedData.responsableId,
                 },
             });
             return { success: true, data: service };

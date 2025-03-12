@@ -1,5 +1,7 @@
 import { PrismaClient } from "@prisma/client";
-import { Patient } from "../schema";
+import { Patient } from "./schema";
+import { validateData } from "../validation-utils";
+import { CreatePatientSchema } from "./schema";
 
 const prisma = new PrismaClient();
 
@@ -25,23 +27,24 @@ export class PatientService {
 
   async createPatient(data: Patient): Promise<ServiceResult<Patient>> {
     try {
-      // Validation basique
-      if (!data.nom || !data.prenom) {
-        return {
-          success: false,
-          error: "Le nom et le prénom sont requis",
-        };
-      }
-
-      console.log(data);
+      // Validation avec le schéma Zod
+      const validatedData = await validateData(CreatePatientSchema, data);
 
       const patient = await prisma.patient.create({
         data: {
-          nom: data.nom,
-          prenom: data.prenom,
-          dateNaissance: data.dateNaissance,
-          numeroSecu: data.numeroSecu,
-          dossierMedical: data.dossierMedical,
+          nom: validatedData.nom,
+          prenom: validatedData.prenom,
+          dateNaissance: validatedData.dateNaissance,
+          adresse: validatedData.adresse,
+          telephone: validatedData.telephone,
+          email: validatedData.email,
+          numeroSecu: validatedData.numeroSecu,
+          groupeSanguin: validatedData.groupeSanguin,
+          allergie: validatedData.allergie,
+          antecedents: validatedData.antecedents,
+          dateAdmission: validatedData.dateAdmission,
+          dateSortie: validatedData.dateSortie,
+          statut: validatedData.statut,
         },
       });
 

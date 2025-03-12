@@ -29,12 +29,14 @@ class TransfertService {
             console.log(data);
             const transfert = await prisma.transfert.create({
                 data: {
-                    patientId: data.patientId,
                     serviceDepartId: data.serviceDepartId,
                     serviceArriveeId: data.serviceArriveeId,
-                    dateTransfert: data.dateTransfert,
-                    etablissementDepartId: data.etablissementDepartId,
-                    etablissementArriveeId: data.etablissementArriveeId,
+                    patientId: data.patientId,
+                    motif: data.motif,
+                    date: data.date,
+                    statut: data.statut,
+                    autorisePar: data.autorisePar,
+                    realiseePar: data.realiseePar,
                 },
             });
             return { success: true, data: transfert };

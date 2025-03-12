@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
-import { Materiel } from "../schema";
 import { MaterielService } from "../lib/materiels-service";
+import { Materiel } from "@prisma/client";
 
 export async function materielRoutes(server: FastifyInstance) {
   const materielService = new MaterielService();

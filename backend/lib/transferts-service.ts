@@ -1,5 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-import { Transfert } from "../schema";
+import { PrismaClient, Transfert } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -37,12 +36,14 @@ export class TransfertService {
 
       const transfert = await prisma.transfert.create({
         data: {
-          patientId: data.patientId,
           serviceDepartId: data.serviceDepartId,
           serviceArriveeId: data.serviceArriveeId,
-          dateTransfert: data.dateTransfert,
-          etablissementDepartId: data.etablissementDepartId,
-          etablissementArriveeId: data.etablissementArriveeId,
+          patientId: data.patientId,
+          motif: data.motif,
+          date: data.date,
+          statut: data.statut,
+          autorisePar: data.autorisePar,
+          realiseePar: data.realiseePar,
         },
       });
 

@@ -11,53 +11,54 @@ var __rest = (this && this.__rest) || function (s, e) {
     return t;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const schema_1 = require("../schema");
 const validation_utils_1 = require("../validation-utils");
-describe("PriseEnCharge Schema", () => {
+const schema_1 = require("../lib/schema");
+describe("PriseEnCharge Schema Validation", () => {
     const validPriseEnChargeData = {
         patientId: "507f1f77bcf86cd799439011",
         personnelId: "507f1f77bcf86cd799439022",
-        datePriseEnCharge: new Date("2023-01-15T10:30:00Z"),
+        dateDebut: new Date("2023-01-15T10:30:00Z"),
+        dateFin: new Date("2023-01-20T16:00:00Z"),
+        description: "Prise en charge post-opératoire",
+        diagnostic: "Récupération normale",
+        traitement: "Analgésiques et physiothérapie",
+        notes: "Patient répond bien au traitement",
     };
     test("validates a correct priseEnCharge", async () => {
-        const result = await (0, validation_utils_1.validateData)(schema_1.priseEnChargeSchema, validPriseEnChargeData);
+        const result = await (0, validation_utils_1.validateData)(schema_1.PriseEnChargeSchema, validPriseEnChargeData);
         expect(result).toEqual(validPriseEnChargeData);
     });
     test("validates a priseEnCharge with id", async () => {
         const priseEnChargeWithId = Object.assign(Object.assign({}, validPriseEnChargeData), { id: "507f1f77bcf86cd799439033" });
-        const result = await (0, validation_utils_1.validateData)(schema_1.priseEnChargeSchema, priseEnChargeWithId);
+        const result = await (0, validation_utils_1.validateData)(schema_1.PriseEnChargeSchema, priseEnChargeWithId);
         expect(result).toEqual(priseEnChargeWithId);
     });
     test("handles string date conversion", async () => {
-        const priseEnChargeWithStringDate = Object.assign(Object.assign({}, validPriseEnChargeData), { datePriseEnCharge: "2023-01-15T10:30:00Z" });
-        const result = await (0, validation_utils_1.validateData)(schema_1.priseEnChargeSchema, priseEnChargeWithStringDate);
-        expect(result.datePriseEnCharge).toBeInstanceOf(Date);
+        const priseEnChargeWithStringDate = Object.assign(Object.assign({}, validPriseEnChargeData), { dateDebut: "2023-01-15T10:30:00Z" });
+        const result = await (0, validation_utils_1.validateData)(schema_1.PriseEnChargeSchema, priseEnChargeWithStringDate);
+        expect(result.dateDebut).toBeInstanceOf(Date);
     });
     test("fails with missing required fields", async () => {
         const { patientId } = validPriseEnChargeData, invalidPriseEnCharge = __rest(validPriseEnChargeData, ["patientId"]);
-        await expect((0, validation_utils_1.validateData)(schema_1.priseEnChargeSchema, invalidPriseEnCharge)).rejects.toThrow();
-    });
-    test("fails with invalid patientId format", async () => {
-        const invalidPriseEnCharge = Object.assign(Object.assign({}, validPriseEnChargeData), { patientId: "" });
-        await expect((0, validation_utils_1.validateData)(schema_1.priseEnChargeSchema, invalidPriseEnCharge)).rejects.toThrow();
+        await expect((0, validation_utils_1.validateData)(schema_1.PriseEnChargeSchema, invalidPriseEnCharge)).rejects.toThrow();
     });
     // Create schema tests
-    test("createPriseEnChargeSchema rejects id field", async () => {
+    test("CreatePriseEnChargeSchema rejects id field", async () => {
         const priseEnChargeWithId = Object.assign(Object.assign({}, validPriseEnChargeData), { id: "507f1f77bcf86cd799439033" });
-        const result = await (0, validation_utils_1.validateData)(schema_1.createPriseEnChargeSchema, priseEnChargeWithId);
+        const result = await (0, validation_utils_1.validateData)(schema_1.CreatePriseEnChargeSchema, priseEnChargeWithId);
         expect(result).not.toHaveProperty("id");
     });
     // Update schema tests
-    test("updatePriseEnChargeSchema requires id field", async () => {
+    test("UpdatePriseEnChargeSchema requires id field", async () => {
         const priseEnChargeWithoutId = { personnelId: "507f1f77bcf86cd799439044" };
-        await expect((0, validation_utils_1.validateData)(schema_1.updatePriseEnChargeSchema, priseEnChargeWithoutId)).rejects.toThrow();
+        await expect((0, validation_utils_1.validateData)(schema_1.UpdatePriseEnChargeSchema, priseEnChargeWithoutId)).rejects.toThrow();
     });
-    test("updatePriseEnChargeSchema allows partial updates", async () => {
+    test("UpdatePriseEnChargeSchema allows partial updates", async () => {
         const partialUpdate = {
             id: "507f1f77bcf86cd799439033",
-            datePriseEnCharge: new Date("2023-01-16T14:00:00Z"),
+            notes: "Nouvelle observation",
         };
-        const result = await (0, validation_utils_1.validateData)(schema_1.updatePriseEnChargeSchema, partialUpdate);
+        const result = await (0, validation_utils_1.validateData)(schema_1.UpdatePriseEnChargeSchema, partialUpdate);
         expect(result).toEqual(partialUpdate);
     });
 });

@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
-import { Lit } from "../schema";
 import { LitService } from "../lib/lits-service";
+import { Lit } from "@prisma/client";
 
 export async function litRoutes(server: FastifyInstance) {
   const litService = new LitService();

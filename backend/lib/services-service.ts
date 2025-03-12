@@ -1,5 +1,7 @@
 import { PrismaClient } from "@prisma/client";
-import { Service } from "../schema";
+import { Service } from "./schema";
+import { validateData } from "../validation-utils";
+import { CreateServiceSchema } from "./schema";
 
 const prisma = new PrismaClient();
 
@@ -25,20 +27,20 @@ export class ServiceService {
 
   async createService(data: Service): Promise<ServiceResult<Service>> {
     try {
-      // Validation basique
-      if (!data.nom) {
-        return {
-          success: false,
-          error: "Un nom doit être attribué au service",
-        };
-      }
-
-      console.log(data);
+      // Validation avec le schéma Zod
+      const validatedData = await validateData(CreateServiceSchema, data);
 
       const service = await prisma.service.create({
         data: {
-          nom: data.nom,
-          etablissementId: data.etablissementId,
+          nom: validatedData.nom,
+          description: validatedData.description,
+          etablissementId: validatedData.etablissementId,
+          etage: validatedData.etage,
+          aile: validatedData.aile,
+          capacite: validatedData.capacite,
+          statut: validatedData.statut || "Actif",
+          specialite: validatedData.specialite,
+          responsableId: validatedData.responsableId,
         },
       });
 

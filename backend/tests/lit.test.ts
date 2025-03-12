@@ -1,14 +1,19 @@
-import { litSchema, createLitSchema, updateLitSchema } from "../schema";
 import { validateData } from "../validation-utils";
+import { LitSchema, CreateLitSchema, UpdateLitSchema } from "../lib/schema";
 
-describe("Lit Schema", () => {
+describe("Lit Schema Validation", () => {
   const validLitData = {
     numeroLit: "A101",
+    type: "Simple",
+    statut: "Disponible",
     serviceId: "507f1f77bcf86cd799439011",
+    chambre: "101",
+    etage: "1",
+    patientId: null,
   };
 
   test("validates a correct lit", async () => {
-    const result = await validateData(litSchema, validLitData);
+    const result = await validateData(LitSchema, validLitData);
     expect(result).toEqual(validLitData);
   });
 
@@ -17,42 +22,42 @@ describe("Lit Schema", () => {
       ...validLitData,
       id: "507f1f77bcf86cd799439011",
     };
-    const result = await validateData(litSchema, litWithId);
+    const result = await validateData(LitSchema, litWithId);
     expect(result).toEqual(litWithId);
   });
 
   test("fails with missing required fields", async () => {
     const { numeroLit, ...invalidLit } = validLitData;
-    await expect(validateData(litSchema, invalidLit)).rejects.toThrow();
+    await expect(validateData(LitSchema, invalidLit)).rejects.toThrow();
   });
 
   test("fails with empty numeroLit", async () => {
     const invalidLit = { ...validLitData, numeroLit: "" };
-    await expect(validateData(litSchema, invalidLit)).rejects.toThrow();
+    await expect(validateData(LitSchema, invalidLit)).rejects.toThrow();
   });
 
   // Create schema tests
-  test("createLitSchema rejects id field", async () => {
+  test("CreateLitSchema rejects id field", async () => {
     const litWithId = {
       ...validLitData,
       id: "507f1f77bcf86cd799439011",
     };
-    const result = await validateData(createLitSchema, litWithId);
+    const result = await validateData(CreateLitSchema, litWithId);
     expect(result).not.toHaveProperty("id");
   });
 
   // Update schema tests
-  test("updateLitSchema requires id field", async () => {
+  test("UpdateLitSchema requires id field", async () => {
     const litWithoutId = { numeroLit: "B202" };
-    await expect(validateData(updateLitSchema, litWithoutId)).rejects.toThrow();
+    await expect(validateData(UpdateLitSchema, litWithoutId)).rejects.toThrow();
   });
 
-  test("updateLitSchema allows partial updates", async () => {
+  test("UpdateLitSchema allows partial updates", async () => {
     const partialUpdate = {
       id: "507f1f77bcf86cd799439011",
       numeroLit: "B202",
     };
-    const result = await validateData(updateLitSchema, partialUpdate);
+    const result = await validateData(UpdateLitSchema, partialUpdate);
     expect(result).toEqual(partialUpdate);
   });
 });

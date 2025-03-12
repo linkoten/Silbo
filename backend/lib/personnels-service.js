@@ -31,8 +31,15 @@ class PersonnelService {
                 data: {
                     nom: data.nom,
                     prenom: data.prenom,
+                    dateNaissance: data.dateNaissance,
+                    email: data.email,
+                    telephone: data.telephone,
                     profession: data.profession,
+                    specialite: data.specialite,
+                    matricule: data.matricule,
                     serviceId: data.serviceId,
+                    dateEmbauche: data.dateEmbauche,
+                    statut: data.statut || "Actif",
                 },
             });
             return { success: true, data: personnel };

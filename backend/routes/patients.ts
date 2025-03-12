@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { PatientService } from "../lib/patients-service";
-import { Patient } from "../schema";
+import { Patient } from "@prisma/client";
 
 export async function patientRoutes(server: FastifyInstance) {
   const patientService = new PatientService();

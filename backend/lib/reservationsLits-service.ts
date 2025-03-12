@@ -1,5 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-import { ReservationLit } from "../schema";
+import { PrismaClient, ReservationLit } from "@prisma/client";
 
 const prisma = new PrismaClient();
 

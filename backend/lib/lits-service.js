@@ -30,7 +30,12 @@ class LitService {
             const lit = await prisma.lit.create({
                 data: {
                     numeroLit: data.numeroLit,
+                    type: data.type,
+                    statut: data.statut,
                     serviceId: data.serviceId,
+                    chambre: data.chambre,
+                    etage: data.etage,
+                    patientId: data.patientId,
                 },
             });
             return { success: true, data: lit };

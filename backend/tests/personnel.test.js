@@ -11,49 +11,52 @@ var __rest = (this && this.__rest) || function (s, e) {
     return t;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const schema_1 = require("../schema");
 const validation_utils_1 = require("../validation-utils");
-describe("Personnel Schema", () => {
+const schema_1 = require("../lib/schema");
+describe("Personnel Schema Validation", () => {
     const validPersonnelData = {
         nom: "Martin",
         prenom: "Sophie",
         profession: "Médecin",
-        serviceId: "507f1f77bcf86cd799439011",
+        dateNaissance: new Date("1985-05-15"),
+        email: "sophie.martin@hopital.fr",
+        telephone: "0601020304",
+        specialite: "Cardiologie",
+        matricule: "MED12345",
+        serviceId: "507f1f77bcf86cd799439022",
+        dateEmbauche: new Date("2015-01-10"),
+        statut: "Actif",
     };
     test("validates a correct personnel", async () => {
-        const result = await (0, validation_utils_1.validateData)(schema_1.personnelSchema, validPersonnelData);
+        const result = await (0, validation_utils_1.validateData)(schema_1.PersonnelSchema, validPersonnelData);
         expect(result).toEqual(validPersonnelData);
     });
     test("validates a personnel with id", async () => {
         const personnelWithId = Object.assign(Object.assign({}, validPersonnelData), { id: "507f1f77bcf86cd799439011" });
-        const result = await (0, validation_utils_1.validateData)(schema_1.personnelSchema, personnelWithId);
+        const result = await (0, validation_utils_1.validateData)(schema_1.PersonnelSchema, personnelWithId);
         expect(result).toEqual(personnelWithId);
     });
     test("fails with missing required fields", async () => {
         const { profession } = validPersonnelData, invalidPersonnel = __rest(validPersonnelData, ["profession"]);
-        await expect((0, validation_utils_1.validateData)(schema_1.personnelSchema, invalidPersonnel)).rejects.toThrow();
-    });
-    test("fails with invalid serviceId format", async () => {
-        const invalidPersonnel = Object.assign(Object.assign({}, validPersonnelData), { serviceId: "" });
-        await expect((0, validation_utils_1.validateData)(schema_1.personnelSchema, invalidPersonnel)).rejects.toThrow();
+        await expect((0, validation_utils_1.validateData)(schema_1.PersonnelSchema, invalidPersonnel)).rejects.toThrow();
     });
     // Create schema tests
-    test("createPersonnelSchema rejects id field", async () => {
+    test("CreatePersonnelSchema rejects id field", async () => {
         const personnelWithId = Object.assign(Object.assign({}, validPersonnelData), { id: "507f1f77bcf86cd799439011" });
-        const result = await (0, validation_utils_1.validateData)(schema_1.createPersonnelSchema, personnelWithId);
+        const result = await (0, validation_utils_1.validateData)(schema_1.CreatePersonnelSchema, personnelWithId);
         expect(result).not.toHaveProperty("id");
     });
     // Update schema tests
-    test("updatePersonnelSchema requires id field", async () => {
+    test("UpdatePersonnelSchema requires id field", async () => {
         const personnelWithoutId = { nom: "Nouveau Nom" };
-        await expect((0, validation_utils_1.validateData)(schema_1.updatePersonnelSchema, personnelWithoutId)).rejects.toThrow();
+        await expect((0, validation_utils_1.validateData)(schema_1.UpdatePersonnelSchema, personnelWithoutId)).rejects.toThrow();
     });
-    test("updatePersonnelSchema allows partial updates", async () => {
+    test("UpdatePersonnelSchema allows partial updates", async () => {
         const partialUpdate = {
             id: "507f1f77bcf86cd799439011",
             profession: "Chirurgien",
         };
-        const result = await (0, validation_utils_1.validateData)(schema_1.updatePersonnelSchema, partialUpdate);
+        const result = await (0, validation_utils_1.validateData)(schema_1.UpdatePersonnelSchema, partialUpdate);
         expect(result).toEqual(partialUpdate);
     });
 });

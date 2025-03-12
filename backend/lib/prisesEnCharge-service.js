@@ -29,9 +29,14 @@ class PriseEnChargeService {
             console.log(data);
             const priseEnCharge = await prisma.priseEnCharge.create({
                 data: {
-                    patientId: data.patientId,
                     personnelId: data.personnelId,
-                    datePriseEnCharge: data.datePriseEnCharge,
+                    patientId: data.patientId,
+                    dateDebut: data.dateDebut,
+                    dateFin: data.dateFin,
+                    description: data.description,
+                    diagnostic: data.diagnostic,
+                    traitement: data.traitement,
+                    notes: data.notes,
                 },
             });
             return { success: true, data: priseEnCharge };

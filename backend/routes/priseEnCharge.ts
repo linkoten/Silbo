@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
-import { PriseEnCharge } from "../schema";
 import { PriseEnChargeService } from "../lib/prisesEnCharge-service";
+import { PriseEnCharge } from "@prisma/client";
 
 export async function priseEnChargeRoutes(server: FastifyInstance) {
   const priseEnChargeService = new PriseEnChargeService();

@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
-import { Transfert } from "../schema";
 import { TransfertService } from "../lib/transferts-service";
+import { Transfert } from "@prisma/client";
 
 export async function transfertRoutes(server: FastifyInstance) {
   const transfertService = new TransfertService();
