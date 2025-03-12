@@ -18,6 +18,7 @@ describe("Patient Schema Validation", () => {
     allergie: "Pénicilline",
     antecedents: "Hypertension",
     dateAdmission: new Date("2023-01-01"),
+    dateSortie: null, // Modifié à null au lieu de date
     statut: "Hospitalisé",
   };
 

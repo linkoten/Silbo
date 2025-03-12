@@ -15,6 +15,7 @@ describe("Service Schema Validation", () => {
     aile: "Est",
     statut: "Actif",
     specialite: "Cardiologie",
+    responsableId: null,
   };
 
   test("validates a correct service", async () => {

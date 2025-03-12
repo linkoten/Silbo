@@ -17,6 +17,7 @@ describe("Etablissement Schema Validation", () => {
     pays: "France",
     statut: "Actif",
     typology: "CHU",
+    siteWeb: "https://hopital-central.fr",
   };
 
   test("validates a correct etablissement", async () => {
