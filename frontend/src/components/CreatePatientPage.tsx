@@ -1,4 +1,4 @@
-import React, { useState, ChangeEvent, FormEvent } from "react";
+import React, { useState, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { patientFormSchema } from "./userFormSchema"; // Ou le chemin correct
 
@@ -12,8 +12,16 @@ const CreatePatientPage: React.FC = () => {
     nom: "",
     prenom: "",
     dateNaissance: new Date(),
-    numeroSecu: "",
-    dossierMedical: null,
+    adresse: null,
+    telephone: null,
+    email: null,
+    numeroSecu: null,
+    groupeSanguin: null,
+    allergie: null,
+    antecedents: null,
+    dateAdmission: new Date(),
+    dateSortie: null,
+    statut: "Hospitalisé",
   });
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -21,7 +29,9 @@ const CreatePatientPage: React.FC = () => {
   const navigate = useNavigate();
 
   const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
   ): void => {
     const { name, value, type } = e.target as HTMLInputElement;
 
@@ -77,6 +87,12 @@ const CreatePatientPage: React.FC = () => {
         formData.dateNaissance instanceof Date
           ? formData.dateNaissance.toISOString()
           : new Date(formData.dateNaissance).toISOString(),
+      dateAdmission:
+        formData.dateAdmission instanceof Date
+          ? formData.dateAdmission.toISOString()
+          : formData.dateAdmission
+          ? new Date(formData.dateAdmission).toISOString()
+          : null,
     };
 
     setLoading(true);
@@ -199,53 +215,189 @@ const CreatePatientPage: React.FC = () => {
           )}
         </div>
 
+        {/* Adresse */}
+        <div className="mb-4">
+          <label
+            className="block text-gray-700 text-sm font-bold mb-2"
+            htmlFor="adresse"
+          >
+            Adresse
+          </label>
+          <input
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            id="adresse"
+            type="text"
+            name="adresse"
+            value={formData.adresse || ""}
+            onChange={handleChange}
+          />
+        </div>
+
+        {/* Téléphone */}
+        <div className="mb-4">
+          <label
+            className="block text-gray-700 text-sm font-bold mb-2"
+            htmlFor="telephone"
+          >
+            Téléphone
+          </label>
+          <input
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            id="telephone"
+            type="text"
+            name="telephone"
+            value={formData.telephone || ""}
+            onChange={handleChange}
+          />
+        </div>
+
+        {/* Email */}
+        <div className="mb-4">
+          <label
+            className="block text-gray-700 text-sm font-bold mb-2"
+            htmlFor="email"
+          >
+            Email
+          </label>
+          <input
+            className={`shadow appearance-none border ${
+              errors.email ? "border-red-500" : ""
+            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
+            id="email"
+            type="email"
+            name="email"
+            value={formData.email || ""}
+            onChange={handleChange}
+          />
+          {errors.email && (
+            <p className="text-red-500 text-xs italic">{errors.email}</p>
+          )}
+        </div>
+
         {/* Numéro de sécurité sociale */}
         <div className="mb-4">
           <label
             className="block text-gray-700 text-sm font-bold mb-2"
             htmlFor="numeroSecu"
           >
-            Numéro de sécurité sociale*
+            Numéro de sécurité sociale
           </label>
           <input
-            className={`shadow appearance-none border ${
-              errors.numeroSecu ? "border-red-500" : ""
-            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             id="numeroSecu"
             type="text"
             name="numeroSecu"
-            value={formData.numeroSecu}
+            value={formData.numeroSecu || ""}
+            onChange={handleChange}
+          />
+        </div>
+
+        {/* Groupe sanguin */}
+        <div className="mb-4">
+          <label
+            className="block text-gray-700 text-sm font-bold mb-2"
+            htmlFor="groupeSanguin"
+          >
+            Groupe sanguin
+          </label>
+          <input
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            id="groupeSanguin"
+            type="text"
+            name="groupeSanguin"
+            value={formData.groupeSanguin || ""}
+            onChange={handleChange}
+          />
+        </div>
+
+        {/* Allergies */}
+        <div className="mb-4">
+          <label
+            className="block text-gray-700 text-sm font-bold mb-2"
+            htmlFor="allergie"
+          >
+            Allergies
+          </label>
+          <textarea
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            id="allergie"
+            name="allergie"
+            value={formData.allergie || ""}
+            onChange={handleChange}
+            rows={3}
+          />
+        </div>
+
+        {/* Antécédents */}
+        <div className="mb-4">
+          <label
+            className="block text-gray-700 text-sm font-bold mb-2"
+            htmlFor="antecedents"
+          >
+            Antécédents médicaux
+          </label>
+          <textarea
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            id="antecedents"
+            name="antecedents"
+            value={formData.antecedents || ""}
+            onChange={handleChange}
+            rows={3}
+          />
+        </div>
+
+        {/* Date d'admission */}
+        <div className="mb-4">
+          <label
+            className="block text-gray-700 text-sm font-bold mb-2"
+            htmlFor="dateAdmission"
+          >
+            Date d'admission
+          </label>
+          <input
+            className={`shadow appearance-none border ${
+              errors.dateAdmission ? "border-red-500" : ""
+            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
+            id="dateAdmission"
+            type="date"
+            name="dateAdmission"
+            value={
+              formData.dateAdmission instanceof Date
+                ? formData.dateAdmission.toISOString().split("T")[0]
+                : formData.dateAdmission
+                ? new Date(formData.dateAdmission).toISOString().split("T")[0]
+                : ""
+            }
             onChange={handleChange}
             required
           />
-          {errors.numeroSecu && (
-            <p className="text-red-500 text-xs italic">{errors.numeroSecu}</p>
+          {errors.dateAdmission && (
+            <p className="text-red-500 text-xs italic">
+              {errors.dateAdmission}
+            </p>
           )}
         </div>
 
-        {/* Dossier médical */}
+        {/* Statut */}
         <div className="mb-6">
           <label
             className="block text-gray-700 text-sm font-bold mb-2"
-            htmlFor="dossierMedical"
+            htmlFor="statut"
           >
-            Dossier médical (optionnel)
+            Statut
           </label>
-          <textarea
-            className={`shadow appearance-none border ${
-              errors.dossierMedical ? "border-red-500" : ""
-            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
-            id="dossierMedical"
-            name="dossierMedical"
-            value={formData.dossierMedical || ""}
+          <select
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            id="statut"
+            name="statut"
+            value={formData.statut || "Hospitalisé"}
             onChange={handleChange}
-            rows={4}
-          />
-          {errors.dossierMedical && (
-            <p className="text-red-500 text-xs italic">
-              {errors.dossierMedical}
-            </p>
-          )}
+          >
+            <option value="Hospitalisé">Hospitalisé</option>
+            <option value="Sorti">Sorti</option>
+            <option value="En attente">En attente</option>
+            <option value="Transféré">Transféré</option>
+          </select>
         </div>
 
         {/* Boutons */}

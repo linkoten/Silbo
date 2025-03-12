@@ -41,6 +41,7 @@ export const PersonnelSchema = z.object({
   serviceId: z.string().nullable(),
   dateEmbauche: z.coerce.date().nullable(),
   statut: z.string().nullable().default("Actif"),
+  etablissementId: z.string().nullable(),
 });
 
 export type Personnel = z.infer<typeof PersonnelSchema>;
@@ -129,12 +130,12 @@ export type Lit = z.infer<typeof LitSchema>;
 
 // Schéma pour ReservationLit
 export const ReservationLitSchema = z.object({
-  id: z.string().optional(),
-  patientId: z.string().min(1, { message: "Le patient est requis" }),
-  litId: z.string().min(1, { message: "Le lit est requis" }),
+  id: z.string().min(1).optional(),
+  patientId: z.string().nullable(),
+  litId: z.string().min(1).nullable(),
   dateArrivee: z.coerce.date(),
   dateDepart: z.coerce.date(),
-  etablissementDestinationId: z.string().nullable(),
+  etablissementDestinationId: z.string().min(1).nullable(),
 });
 
 export type ReservationLit = z.infer<typeof ReservationLitSchema>;

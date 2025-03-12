@@ -25,6 +25,7 @@ describe("Etablissement Schema Validation", () => {
         pays: "France",
         statut: "Actif",
         typology: "CHU",
+        siteWeb: "https://hopital-central.fr",
     };
     test("validates a correct etablissement", async () => {
         const result = await (0, validation_utils_1.validateData)(schema_1.EtablissementSchema, validEtablissementData);

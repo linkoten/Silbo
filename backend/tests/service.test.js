@@ -23,6 +23,7 @@ describe("Service Schema Validation", () => {
         aile: "Est",
         statut: "Actif",
         specialite: "Cardiologie",
+        responsableId: null,
     };
     test("validates a correct service", async () => {
         const result = await (0, validation_utils_1.validateData)(schema_1.ServiceSchema, validServiceData);

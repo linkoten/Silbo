@@ -1,42 +1,57 @@
 import React, { useState, ChangeEvent, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { etablissementFormSchema } from "./userFormSchema"; // Ou le chemin correct
-
+import { etablissementFormSchema } from "./userFormSchema";
 import { z } from "zod";
 
-// Utilisation du type fourni par Zod pour le formulaire (sans l'ID qui est généré automatiquement)
+// Type pour le formulaire de l'établissement
 type EtablissementFormData = z.infer<typeof etablissementFormSchema>;
 
 const CreateEtablissementPage: React.FC = () => {
   const [formData, setFormData] = useState<EtablissementFormData>({
     nom: "",
     adresse: "",
+    capacite: 0,
+    telephone: null,
+    email: null,
+    siteWeb: null,
+    codePostal: null,
+    ville: null,
+    pays: "France",
+    statut: "Actif",
+    typology: null,
   });
+
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ): void => {
-    const { name, value } = e.target as HTMLInputElement;
+    const { name, value } = e.target;
 
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
+    if (name === "capacite") {
+      // Pour le champ capacité, convertir la valeur en nombre
+      setFormData({
+        ...formData,
+        [name]: parseInt(value) || 0,
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value,
+      });
+    }
   };
 
   const validateForm = (): boolean => {
     try {
-      // Utiliser le schéma Zod pour valider les données
       etablissementFormSchema.parse(formData);
       setErrors({});
       return true;
     } catch (error) {
       if (error instanceof z.ZodError) {
-        // Convertir les erreurs Zod en un format utilisable pour l'interface
         const formattedErrors: Record<string, string> = {};
         error.errors.forEach((err) => {
           if (err.path.length > 0) {
@@ -52,18 +67,9 @@ const CreateEtablissementPage: React.FC = () => {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
 
-    // Valider le formulaire avant de soumettre
     if (!validateForm()) {
       return;
     }
-
-    console.log(formData);
-
-    // Créer une copie des données pour l'envoi
-    const dataToSend = {
-      ...formData,
-      // S'assurer que la date est au format ISO 8601 (YYYY-MM-DD)
-    };
 
     setLoading(true);
     setSubmitError(null);
@@ -74,17 +80,17 @@ const CreateEtablissementPage: React.FC = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(dataToSend),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.details || "Erreur lors de la création du etablissement"
+          errorData.details || "Erreur lors de la création de l'établissement"
         );
       }
 
-      // Redirection vers la liste des etablissements après création réussie
+      // Redirection vers la liste des établissements après création réussie
       navigate("/etablissements");
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Erreur inconnue");
@@ -96,7 +102,7 @@ const CreateEtablissementPage: React.FC = () => {
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-6">
-        Ajouter un nouveau etablissement
+        Ajouter un nouvel établissement
       </h1>
 
       {submitError && (
@@ -115,7 +121,7 @@ const CreateEtablissementPage: React.FC = () => {
             className="block text-gray-700 text-sm font-bold mb-2"
             htmlFor="nom"
           >
-            Nom
+            Nom de l'établissement
           </label>
           <input
             className={`shadow appearance-none border ${
@@ -154,6 +160,219 @@ const CreateEtablissementPage: React.FC = () => {
           />
           {errors.adresse && (
             <p className="text-red-500 text-xs italic">{errors.adresse}</p>
+          )}
+        </div>
+
+        {/* Code Postal */}
+        <div className="mb-4">
+          <label
+            className="block text-gray-700 text-sm font-bold mb-2"
+            htmlFor="codePostal"
+          >
+            Code Postal
+          </label>
+          <input
+            className={`shadow appearance-none border ${
+              errors.codePostal ? "border-red-500" : ""
+            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
+            id="codePostal"
+            type="text"
+            name="codePostal"
+            value={formData.codePostal || ""}
+            onChange={handleChange}
+          />
+          {errors.codePostal && (
+            <p className="text-red-500 text-xs italic">{errors.codePostal}</p>
+          )}
+        </div>
+
+        {/* Ville */}
+        <div className="mb-4">
+          <label
+            className="block text-gray-700 text-sm font-bold mb-2"
+            htmlFor="ville"
+          >
+            Ville
+          </label>
+          <input
+            className={`shadow appearance-none border ${
+              errors.ville ? "border-red-500" : ""
+            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
+            id="ville"
+            type="text"
+            name="ville"
+            value={formData.ville || ""}
+            onChange={handleChange}
+          />
+          {errors.ville && (
+            <p className="text-red-500 text-xs italic">{errors.ville}</p>
+          )}
+        </div>
+
+        {/* Pays */}
+        <div className="mb-4">
+          <label
+            className="block text-gray-700 text-sm font-bold mb-2"
+            htmlFor="pays"
+          >
+            Pays
+          </label>
+          <input
+            className={`shadow appearance-none border ${
+              errors.pays ? "border-red-500" : ""
+            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
+            id="pays"
+            type="text"
+            name="pays"
+            value={formData.pays}
+            onChange={handleChange}
+          />
+          {errors.pays && (
+            <p className="text-red-500 text-xs italic">{errors.pays}</p>
+          )}
+        </div>
+
+        {/* Telephone */}
+        <div className="mb-4">
+          <label
+            className="block text-gray-700 text-sm font-bold mb-2"
+            htmlFor="telephone"
+          >
+            Téléphone
+          </label>
+          <input
+            className={`shadow appearance-none border ${
+              errors.telephone ? "border-red-500" : ""
+            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
+            id="telephone"
+            type="tel"
+            name="telephone"
+            value={formData.telephone || ""}
+            onChange={handleChange}
+          />
+          {errors.telephone && (
+            <p className="text-red-500 text-xs italic">{errors.telephone}</p>
+          )}
+        </div>
+
+        {/* Email */}
+        <div className="mb-4">
+          <label
+            className="block text-gray-700 text-sm font-bold mb-2"
+            htmlFor="email"
+          >
+            Email
+          </label>
+          <input
+            className={`shadow appearance-none border ${
+              errors.email ? "border-red-500" : ""
+            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
+            id="email"
+            type="email"
+            name="email"
+            value={formData.email || ""}
+            onChange={handleChange}
+          />
+          {errors.email && (
+            <p className="text-red-500 text-xs italic">{errors.email}</p>
+          )}
+        </div>
+
+        {/* Site Web */}
+        <div className="mb-4">
+          <label
+            className="block text-gray-700 text-sm font-bold mb-2"
+            htmlFor="siteWeb"
+          >
+            Site Web
+          </label>
+          <input
+            className={`shadow appearance-none border ${
+              errors.siteWeb ? "border-red-500" : ""
+            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
+            id="siteWeb"
+            type="url"
+            name="siteWeb"
+            placeholder="https://example.com"
+            value={formData.siteWeb || ""}
+            onChange={handleChange}
+          />
+          {errors.siteWeb && (
+            <p className="text-red-500 text-xs italic">{errors.siteWeb}</p>
+          )}
+        </div>
+
+        {/* Capacite */}
+        <div className="mb-4">
+          <label
+            className="block text-gray-700 text-sm font-bold mb-2"
+            htmlFor="capacite"
+          >
+            Capacité
+          </label>
+          <input
+            className={`shadow appearance-none border ${
+              errors.capacite ? "border-red-500" : ""
+            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
+            id="capacite"
+            type="number"
+            name="capacite"
+            min="0"
+            value={formData.capacite}
+            onChange={handleChange}
+          />
+          {errors.capacite && (
+            <p className="text-red-500 text-xs italic">{errors.capacite}</p>
+          )}
+        </div>
+
+        {/* Typology */}
+        <div className="mb-4">
+          <label
+            className="block text-gray-700 text-sm font-bold mb-2"
+            htmlFor="typology"
+          >
+            Typologie
+          </label>
+          <input
+            className={`shadow appearance-none border ${
+              errors.typology ? "border-red-500" : ""
+            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
+            id="typology"
+            type="text"
+            name="typology"
+            value={formData.typology || ""}
+            onChange={handleChange}
+          />
+          {errors.typology && (
+            <p className="text-red-500 text-xs italic">{errors.typology}</p>
+          )}
+        </div>
+
+        {/* Statut */}
+        <div className="mb-4">
+          <label
+            className="block text-gray-700 text-sm font-bold mb-2"
+            htmlFor="statut"
+          >
+            Statut
+          </label>
+          <select
+            className={`shadow appearance-none border ${
+              errors.statut ? "border-red-500" : ""
+            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
+            id="statut"
+            name="statut"
+            value={formData.statut || "Actif"}
+            onChange={handleChange}
+          >
+            <option value="Actif">Actif</option>
+            <option value="Inactif">Inactif</option>
+            <option value="En construction">En construction</option>
+            <option value="En rénovation">En rénovation</option>
+          </select>
+          {errors.statut && (
+            <p className="text-red-500 text-xs italic">{errors.statut}</p>
           )}
         </div>
 

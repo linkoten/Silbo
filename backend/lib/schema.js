@@ -39,6 +39,7 @@ exports.PersonnelSchema = zod_1.z.object({
     serviceId: zod_1.z.string().nullable(),
     dateEmbauche: zod_1.z.coerce.date().nullable(),
     statut: zod_1.z.string().nullable().default("Actif"),
+    etablissementId: zod_1.z.string().nullable(),
 });
 // Schéma pour Service
 exports.ServiceSchema = zod_1.z.object({
@@ -109,12 +110,12 @@ exports.LitSchema = zod_1.z.object({
 });
 // Schéma pour ReservationLit
 exports.ReservationLitSchema = zod_1.z.object({
-    id: zod_1.z.string().optional(),
-    patientId: zod_1.z.string().min(1, { message: "Le patient est requis" }),
-    litId: zod_1.z.string().min(1, { message: "Le lit est requis" }),
+    id: zod_1.z.string().min(1).optional(),
+    patientId: zod_1.z.string().nullable(),
+    litId: zod_1.z.string().min(1).nullable(),
     dateArrivee: zod_1.z.coerce.date(),
     dateDepart: zod_1.z.coerce.date(),
-    etablissementDestinationId: zod_1.z.string().nullable(),
+    etablissementDestinationId: zod_1.z.string().min(1).nullable(),
 });
 // Schéma pour Etablissement
 exports.EtablissementSchema = zod_1.z.object({

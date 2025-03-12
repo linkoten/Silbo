@@ -37,22 +37,24 @@ model Patient {
 }
 
 model Personnel {
-  id             String          @id @default(auto()) @map("_id") @db.ObjectId
-  nom            String
-  prenom         String
-  dateNaissance  DateTime?
-  email          String?
-  telephone      String?
-  profession     String
-  specialite     String?
-  matricule      String?         @unique
-  serviceId      String?         @db.ObjectId
-  service        Service?        @relation(fields: [serviceId], references: [id])
-  dateEmbauche   DateTime?
-  statut         String?         @default("Actif")
-  dateCreation   DateTime        @default(now())
-  dateMAJ        DateTime        @updatedAt
-  prisesEnCharge PriseEnCharge[]
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  nom             String
+  prenom          String
+  dateNaissance   DateTime?
+  email           String?
+  telephone       String?
+  profession      String
+  specialite      String?
+  matricule       String?         @unique
+  serviceId       String?         @db.ObjectId
+  service         Service?        @relation(fields: [serviceId], references: [id])
+  etablissementId String?         @db.ObjectId
+  etablissement   Etablissement?  @relation(fields: [etablissementId], references: [id])
+  dateEmbauche    DateTime?
+  statut          String?         @default("Actif")
+  dateCreation    DateTime        @default(now())
+  dateMAJ         DateTime        @updatedAt
+  prisesEnCharge  PriseEnCharge[]
 
   @@map("personnels")
 }
@@ -184,6 +186,7 @@ model Etablissement {
   statut       String?          @default("Actif")
   typology     String?
   services     Service[]
+  personnels   Personnel[]
   reservations ReservationLit[]
 
   @@map("etablissements")
