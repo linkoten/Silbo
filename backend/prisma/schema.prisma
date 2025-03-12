@@ -14,79 +14,144 @@ model User {
 }
 
 model Patient {
-  id              String           @id @default(auto()) @map("_id") @db.ObjectId
-  nom             String
-  prenom          String
-  dateNaissance   DateTime
-  numeroSecu      String           @unique
-  dossierMedical  String?
-  transferts      Transfert[]
-  prisesEnCharge  PriseEnCharge[]
-  reservationsLit ReservationLit[]
+  id             String           @id @default(auto()) @map("_id") @db.ObjectId
+  nom            String
+  prenom         String
+  dateNaissance  DateTime
+  adresse        String?
+  telephone      String?
+  email          String?
+  numeroSecu     String?
+  groupeSanguin  String?
+  allergie       String?
+  antecedents    String?
+  dateAdmission  DateTime?
+  dateSortie     DateTime?
+  statut         String?          @default("Hospitalisé")
+  dateCreation   DateTime         @default(now())
+  dateMAJ        DateTime         @updatedAt
+  prisesEnCharge PriseEnCharge[]
+  ReservationLit ReservationLit[]
+
+  @@map("patients")
 }
 
 model Personnel {
   id             String          @id @default(auto()) @map("_id") @db.ObjectId
   nom            String
   prenom         String
+  dateNaissance  DateTime?
+  email          String?
+  telephone      String?
   profession     String
-  serviceId      String          @db.ObjectId
-  service        Service         @relation(fields: [serviceId], references: [id])
+  specialite     String?
+  matricule      String?         @unique
+  serviceId      String?         @db.ObjectId
+  service        Service?        @relation(fields: [serviceId], references: [id])
+  dateEmbauche   DateTime?
+  statut         String?         @default("Actif")
+  dateCreation   DateTime        @default(now())
+  dateMAJ        DateTime        @updatedAt
   prisesEnCharge PriseEnCharge[]
+
+  @@map("personnels")
 }
 
 model Service {
-  id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  nom             String
-  personnel       Personnel[]
-  lits            Lit[]
-  etablissementId String        @db.ObjectId
-  etablissement   Etablissement @relation(fields: [etablissementId], references: [id])
-  materiels       Materiel[]
+  id                String        @id @default(auto()) @map("_id") @db.ObjectId
+  nom               String
+  description       String?
+  etablissementId   String        @db.ObjectId
+  etablissement     Etablissement @relation(fields: [etablissementId], references: [id])
+  etage             String?
+  aile              String?
+  capacite          Int           @default(0)
+  dateCreation      DateTime      @default(now())
+  dateMAJ           DateTime      @updatedAt
+  statut            String?       @default("Actif")
+  specialite        String?
+  responsableId     String?
+  personnels        Personnel[]
+  lits              Lit[]
+  materiels         Materiel[]
+  transfertsDepart  Transfert[]   @relation("ServiceDepart")
+  transfertsArrivee Transfert[]   @relation("ServiceArrivee")
 
-  transfertsDepart  Transfert[] @relation("Depart")
-  transfertsArrivee Transfert[] @relation("Arrivee")
+  @@map("services")
 }
 
 model Transfert {
-  id                     String         @id @default(auto()) @map("_id") @db.ObjectId
-  patientId              String         @db.ObjectId
-  patient                Patient        @relation(fields: [patientId], references: [id])
-  serviceDepartId        String         @db.ObjectId
-  serviceDepart          Service        @relation("Depart", fields: [serviceDepartId], references: [id])
-  serviceArriveeId       String         @db.ObjectId
-  serviceArrivee         Service        @relation("Arrivee", fields: [serviceArriveeId], references: [id])
-  dateTransfert          DateTime
-  etablissementDepartId  String?        @db.ObjectId
-  etablissementDepart    Etablissement? @relation("EtablissementDepart", fields: [etablissementDepartId], references: [id])
-  etablissementArriveeId String?        @db.ObjectId
-  etablissementArrivee   Etablissement? @relation("EtablissementArrivee", fields: [etablissementArriveeId], references: [id])
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  serviceDepartId  String   @db.ObjectId
+  serviceDepart    Service  @relation("ServiceDepart", fields: [serviceDepartId], references: [id])
+  serviceArriveeId String   @db.ObjectId
+  serviceArrivee   Service  @relation("ServiceArrivee", fields: [serviceArriveeId], references: [id])
+  patientId        String
+  motif            String?
+  date             DateTime @default(now())
+  statut           String?  @default("Planifié")
+  autorisePar      String?
+  realiseePar      String?
+  dateCreation     DateTime @default(now())
+  dateMAJ          DateTime @updatedAt
+
+  @@map("transferts")
 }
 
 model Materiel {
-  id          String  @id @default(auto()) @map("_id") @db.ObjectId
-  nom         String
-  description String?
-  quantite    Int
-  serviceId   String  @db.ObjectId
-  service     Service @relation(fields: [serviceId], references: [id])
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  nom             String
+  description     String?
+  quantite        Int       @default(1)
+  type            String?
+  marque          String?
+  modele          String?
+  numeroSerie     String?
+  dateAchat       DateTime?
+  dateMaintenance DateTime?
+  statut          String?   @default("En Service")
+  serviceId       String?   @db.ObjectId
+  service         Service?  @relation(fields: [serviceId], references: [id])
+  dateCreation    DateTime  @default(now())
+  dateMAJ         DateTime  @updatedAt
+
+  @@map("materiels")
 }
 
 model PriseEnCharge {
-  id                String    @id @default(auto()) @map("_id") @db.ObjectId
-  patientId         String    @db.ObjectId
-  patient           Patient   @relation(fields: [patientId], references: [id])
-  personnelId       String    @db.ObjectId
-  personnel         Personnel @relation(fields: [personnelId], references: [id])
-  datePriseEnCharge DateTime
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  personnelId  String    @db.ObjectId
+  personnel    Personnel @relation(fields: [personnelId], references: [id])
+  patientId    String    @db.ObjectId
+  patient      Patient   @relation(fields: [patientId], references: [id])
+  dateDebut    DateTime  @default(now())
+  dateFin      DateTime?
+  description  String?
+  diagnostic   String?
+  traitement   String?
+  notes        String?
+  dateCreation DateTime  @default(now())
+  dateMAJ      DateTime  @updatedAt
+
+  @@map("prises_en_charge")
 }
 
 model Lit {
-  id           String           @id @default(auto()) @map("_id") @db.ObjectId
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
   numeroLit    String
-  serviceId    String           @db.ObjectId
-  service      Service          @relation(fields: [serviceId], references: [id])
+  type         String?
+  statut       String?  @default("Disponible")
+  serviceId    String   @db.ObjectId
+  service      Service  @relation(fields: [serviceId], references: [id])
+  chambre      String?
+  etage        String?
+  dateCreation DateTime @default(now())
+  dateMAJ      DateTime @updatedAt
+  patientId    String?
+
   reservations ReservationLit[]
+
+  @@map("lits")
 }
 
 model ReservationLit {
@@ -99,14 +164,58 @@ model ReservationLit {
   dateDepart                 DateTime
   etablissementDestinationId String?        @db.ObjectId
   etablissementDestination   Etablissement? @relation(fields: [etablissementDestinationId], references: [id])
+
+  @@map("reservations_lit")
 }
 
 model Etablissement {
-  id                String           @id @default(auto()) @map("_id") @db.ObjectId
-  nom               String
-  adresse           String?
-  services          Service[]
-  reservationsLit   ReservationLit[]
-  transfertsDepart  Transfert[]      @relation("EtablissementDepart")
-  transfertsArrivee Transfert[]      @relation("EtablissementArrivee")
+  id           String           @id @default(auto()) @map("_id") @db.ObjectId
+  nom          String
+  adresse      String
+  capacite     Int              @default(0)
+  telephone    String?
+  email        String?
+  siteWeb      String?
+  codePostal   String?
+  ville        String?
+  pays         String?          @default("France")
+  dateCreation DateTime         @default(now())
+  dateMAJ      DateTime         @updatedAt
+  statut       String?          @default("Actif")
+  typology     String?
+  services     Service[]
+  reservations ReservationLit[]
+
+  @@map("etablissements")
+}
+
+model Medicament {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  nom            String
+  dosage         String?
+  description    String?
+  categorie      String?
+  fabricant      String?
+  stockActuel    Int       @default(0)
+  stockMinimum   Int       @default(5)
+  datePeremption DateTime?
+  dateCreation   DateTime  @default(now())
+  dateMAJ        DateTime  @updatedAt
+
+  @@map("medicaments")
+}
+
+model Document {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  titre        String
+  typeDocument String
+  contenu      String?
+  url          String?
+  patientId    String?
+  personnelId  String?
+  serviceId    String?
+  dateCreation DateTime @default(now())
+  dateMAJ      DateTime @updatedAt
+
+  @@map("documents")
 }
