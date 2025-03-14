@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import LitsTab from "@/components/tabs/LitsTab";
+import ServicePersonnelTab from "@/components/tabs/ServicePersonnelTab";
 
 // Interfaces pour les données
 interface Service {
@@ -499,163 +501,18 @@ const ServiceDetailPage: React.FC = () => {
               </div>
             )}
 
-            {/* Onglet Lits */}
-            {activeTab === "lits" &&
-              (service.lits.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          ID
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Numéro de lit
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Statut
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {service.lits.map((lit) => (
-                        <tr key={lit.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap font-mono text-sm">
-                            {lit.id}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap font-medium">
-                            {lit.numeroLit}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                              Disponible
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Link
-                              to={`/lits/${lit.id}`}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              Détails
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-10 text-gray-500">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                    <svg
-                      className="w-8 h-8 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      ></path>
-                    </svg>
-                  </div>
-                  <p className="text-xl font-medium mb-2">
-                    Aucun lit disponible
-                  </p>
-                  <p className="mb-6">
-                    Ce service n'a pas encore de lits enregistrés.
-                  </p>
-                  <Link
-                    to={`/lits/create?serviceId=${id}`}
-                    className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
-                  >
-                    Ajouter un lit
-                  </Link>
-                </div>
-              ))}
+            {/* Onglet Lits - Utilisation du composant LitsTab */}
+            {activeTab === "lits" && service && (
+              <LitsTab lits={service.lits} serviceId={service.id} />
+            )}
 
-            {/* Onglet Personnel */}
-            {activeTab === "personnel" &&
-              (service.personnels.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Nom
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Prénom
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Profession
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {service.personnels.map((personnel) => (
-                        <tr key={personnel.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {personnel.nom}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {personnel.prenom}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Badge color="bg-purple-100 text-purple-800">
-                              {personnel.profession}
-                            </Badge>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Link
-                              to={`/personnels/${personnel.id}`}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              Détails
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-10 text-gray-500">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                    <svg
-                      className="w-8 h-8 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      ></path>
-                    </svg>
-                  </div>
-                  <p className="text-xl font-medium mb-2">Aucun personnel</p>
-                  <p className="mb-6">
-                    Ce service n'a pas encore de personnel enregistré.
-                  </p>
-                  <Link
-                    to={`/personnels/create?serviceId=${id}`}
-                    className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
-                  >
-                    Ajouter du personnel
-                  </Link>
-                </div>
-              ))}
+            {/* Onglet Personnel - Utilisation du composant ServicePersonnelTab */}
+            {activeTab === "personnel" && service && (
+              <ServicePersonnelTab
+                personnels={service.personnels}
+                serviceId={service.id}
+              />
+            )}
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { formatDate } from "../../utils/formatUtils";
+import ReservationDetailTab from "@/components/tabs/ReservationDetailTab";
+import ReservationRelatedTab from "@/components/tabs/ReservationRelatedTab";
 
 // Interfaces pour les données
 interface ReservationLit {
@@ -24,6 +25,11 @@ interface Lit {
   serviceId: string;
 }
 
+interface Service {
+  id: string;
+  nom: string;
+}
+
 interface Etablissement {
   id: string;
   nom: string;
@@ -33,22 +39,9 @@ interface Etablissement {
 interface ReservationDetails extends ReservationLit {
   patient?: Patient;
   lit?: Lit;
+  service?: Service;
   etablissementDestination?: Etablissement;
 }
-
-// Composant Card réutilisable
-const Card: React.FC<{
-  title: string;
-  children: React.ReactNode;
-  className?: string;
-}> = ({ title, children, className = "" }) => (
-  <div className={`bg-white rounded-xl shadow-lg overflow-hidden ${className}`}>
-    <div className="bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-4">
-      <h3 className="text-white text-lg font-bold">{title}</h3>
-    </div>
-    <div className="p-6">{children}</div>
-  </div>
-);
 
 // Composant Badge
 const Badge: React.FC<{ children: React.ReactNode; color: string }> = ({
@@ -62,17 +55,31 @@ const Badge: React.FC<{ children: React.ReactNode; color: string }> = ({
   </span>
 );
 
+// Composant Tab pour les onglets
+const Tab: React.FC<{
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}> = ({ active, onClick, children }) => (
+  <button
+    onClick={onClick}
+    className={`px-6 py-3 font-medium text-sm transition-all duration-200 
+    ${
+      active
+        ? "border-b-2 border-blue-500 text-blue-600"
+        : "text-gray-500 hover:text-blue-500"
+    }`}
+  >
+    {children}
+  </button>
+);
+
 // Calculer la durée entre deux dates
 const getDurationDays = (start: string, end: string): number => {
   const startDate = new Date(start);
   const endDate = new Date(end);
   const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-};
-
-// Vérifier si une date est passée
-const isDatePassed = (date: string): boolean => {
-  return new Date(date) < new Date();
 };
 
 const ReservationLitDetailPage: React.FC = () => {
@@ -83,6 +90,7 @@ const ReservationLitDetailPage: React.FC = () => {
   );
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"details" | "related">("details");
 
   // Animation effet "pulse" pour simuler un chargement
   const [pulse, setPulse] = useState(false);
@@ -101,7 +109,7 @@ const ReservationLitDetailPage: React.FC = () => {
 
         // Récupération des données de la réservation
         const reservationResponse = await fetch(
-          `http://localhost:3000/reservationsLit/${id}`
+          `http://localhost:3000/reservations-lits/${id}`
         );
 
         if (!reservationResponse.ok) {
@@ -128,12 +136,24 @@ const ReservationLitDetailPage: React.FC = () => {
 
         // Récupération des données du lit associé
         let litData: Lit | undefined = undefined;
+        let serviceData: Service | undefined = undefined;
+
         try {
           const litResponse = await fetch(
             `http://localhost:3000/lits/${reservationData.litId}`
           );
           if (litResponse.ok) {
             litData = await litResponse.json();
+
+            // Si on a récupéré le lit, on récupère aussi son service
+            if (litData!.serviceId) {
+              const serviceResponse = await fetch(
+                `http://localhost:3000/services/${litData!.serviceId}`
+              );
+              if (serviceResponse.ok) {
+                serviceData = await serviceResponse.json();
+              }
+            }
           }
         } catch (err) {
           console.warn("Impossible de récupérer les détails du lit:", err);
@@ -162,6 +182,7 @@ const ReservationLitDetailPage: React.FC = () => {
           ...reservationData,
           patient: patientData,
           lit: litData,
+          service: serviceData,
           etablissementDestination: etablissementData,
         });
       } catch (err) {
@@ -189,7 +210,7 @@ const ReservationLitDetailPage: React.FC = () => {
 
     try {
       const response = await fetch(
-        `http://localhost:3000/reservationsLit/${id}`,
+        `http://localhost:3000/reservations-lits/${id}`,
         {
           method: "DELETE",
         }
@@ -199,7 +220,7 @@ const ReservationLitDetailPage: React.FC = () => {
         throw new Error(`Erreur lors de la suppression: ${response.status}`);
       }
 
-      navigate("/reservationsLit");
+      navigate("/reservations-lits");
     } catch (err) {
       alert(
         err instanceof Error ? err.message : "Erreur lors de la suppression"
@@ -246,7 +267,7 @@ const ReservationLitDetailPage: React.FC = () => {
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Erreur</h2>
           <p className="text-gray-600">{error}</p>
           <Link
-            to="/reservationsLit"
+            to="/reservations-lits"
             className="mt-6 inline-block bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
           >
             Retour à la liste des réservations
@@ -333,7 +354,7 @@ const ReservationLitDetailPage: React.FC = () => {
               </div>
               <div className="flex space-x-3">
                 <Link
-                  to={`/reservationsLit/edit/${id}`}
+                  to={`/reservations-lits/edit/${id}`}
                   className="bg-white hover:bg-gray-100 text-blue-600 px-4 py-2 rounded-lg shadow-md transition-all transform hover:-translate-y-1 flex items-center"
                 >
                   <svg
@@ -374,251 +395,48 @@ const ReservationLitDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Contenu principal */}
+          {/* Onglets de navigation */}
+          <div className="border-b">
+            <div className="flex overflow-x-auto">
+              <Tab
+                active={activeTab === "details"}
+                onClick={() => setActiveTab("details")}
+              >
+                Détails de la réservation
+              </Tab>
+              <Tab
+                active={activeTab === "related"}
+                onClick={() => setActiveTab("related")}
+              >
+                Éléments associés
+              </Tab>
+            </div>
+          </div>
+
+          {/* Contenu des onglets */}
           <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Détails de la réservation */}
-              <Card title="Informations de la réservation" className="h-full">
-                <dl className="grid grid-cols-1 gap-4">
-                  <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">
-                        Date de départ
-                      </dt>
-                      <dd className="mt-1 text-lg text-gray-900 font-medium">
-                        {formatDate(reservation.dateDepart)}
-                      </dd>
-                    </div>
-                    <svg
-                      className="w-6 h-6 text-blue-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M13 5l7 7-7 7M5 5l7 7-7 7"
-                      />
-                    </svg>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">
-                        Date d'arrivée
-                      </dt>
-                      <dd className="mt-1 text-lg text-gray-900 font-medium">
-                        {formatDate(reservation.dateArrivee)}
-                      </dd>
-                    </div>
-                  </div>
+            {/* Onglet Détails */}
+            {activeTab === "details" && (
+              <ReservationDetailTab reservation={reservation} />
+            )}
 
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">
-                      Durée du séjour
-                    </dt>
-                    <dd className="mt-1 text-gray-900">
-                      {duration} jour{duration > 1 ? "s" : ""}
-                    </dd>
-                  </div>
-
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">
-                      Établissement de destination
-                    </dt>
-                    <dd className="mt-1">
-                      {reservation.etablissementDestination ? (
-                        <Link
-                          to={`/etablissements/${reservation.etablissementDestinationId}`}
-                          className="text-blue-600 hover:underline"
-                        >
-                          {reservation.etablissementDestination.nom}
-                        </Link>
-                      ) : (
-                        <span className="text-gray-500">
-                          {reservation.etablissementDestinationId ||
-                            "Non spécifié"}
-                        </span>
-                      )}
-                    </dd>
-                  </div>
-
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">
-                      Identifiant de réservation
-                    </dt>
-                    <dd className="mt-1 text-gray-400 text-sm font-mono">
-                      {reservation.id}
-                    </dd>
-                  </div>
-                </dl>
-              </Card>
-
-              {/* Informations associées */}
-              <div className="grid grid-cols-1 gap-6">
-                <Card title="Patient" className="h-full">
-                  {reservation.patient ? (
-                    <div className="flex items-center mb-4">
-                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold mr-4">
-                        {reservation.patient.prenom.charAt(0)}
-                        {reservation.patient.nom.charAt(0)}
-                      </div>
-                      <div>
-                        <h4 className="text-lg font-medium">
-                          {reservation.patient.prenom} {reservation.patient.nom}
-                        </h4>
-                        <Link
-                          to={`/patients/${reservation.patientId}`}
-                          className="text-blue-600 hover:text-blue-800 text-sm flex items-center mt-1"
-                        >
-                          <svg
-                            className="w-4 h-4 mr-1"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                            />
-                          </svg>
-                          Voir le dossier patient
-                        </Link>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center h-24 text-gray-400">
-                      <p>Information patient non disponible</p>
-                      <p className="text-sm mt-1">
-                        ID: {reservation.patientId}
-                      </p>
-                    </div>
-                  )}
-                </Card>
-
-                <Card title="Lit assigné" className="h-full">
-                  {reservation.lit ? (
-                    <div>
-                      <div className="flex items-center">
-                        <div className="p-3 bg-green-100 rounded-full mr-4">
-                          <svg
-                            className="w-8 h-8 text-green-600"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M5 13l4 4L19 7"
-                            />
-                          </svg>
-                        </div>
-                        <div>
-                          <h4 className="text-lg font-medium">
-                            Lit n°{reservation.lit.numeroLit}
-                          </h4>
-                          <p className="text-gray-500">
-                            Service ID: {reservation.lit.serviceId}
-                          </p>
-                        </div>
-                      </div>
-                      <Link
-                        to={`/lits/${reservation.litId}`}
-                        className="text-blue-600 hover:text-blue-800 text-sm flex items-center mt-4"
-                      >
-                        <svg
-                          className="w-4 h-4 mr-1"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
-                        Voir les détails du lit
-                      </Link>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-24 text-gray-400">
-                      <p>Information sur le lit non disponible</p>
-                      <p className="text-sm mt-1">ID: {reservation.litId}</p>
-                    </div>
-                  )}
-                </Card>
-              </div>
-            </div>
-
-            {/* Timeline de la réservation */}
-            <div className="mt-8">
-              <h3 className="text-lg font-medium mb-4">Chronologie</h3>
-              <div className="flex items-center">
-                <div
-                  className={`w-1/3 p-3 rounded-lg ${
-                    isDatePassed(reservation.dateDepart)
-                      ? "bg-green-100"
-                      : "bg-gray-100"
-                  }`}
-                >
-                  <p className="text-sm text-gray-500">Départ</p>
-                  <p className="font-medium">
-                    {formatDate(reservation.dateDepart)}
-                  </p>
-                  {isDatePassed(reservation.dateDepart) && (
-                    <span className="inline-block mt-1 px-2 py-1 bg-green-200 text-green-800 text-xs rounded">
-                      Passé
-                    </span>
-                  )}
-                </div>
-                <div className="flex-1 h-0.5 bg-gray-300 mx-2"></div>
-                <div
-                  className={`w-1/3 p-3 rounded-lg ${
-                    isDatePassed(reservation.dateArrivee)
-                      ? "bg-green-100"
-                      : isDatePassed(reservation.dateDepart)
-                      ? "bg-blue-100"
-                      : "bg-gray-100"
-                  }`}
-                >
-                  <p className="text-sm text-gray-500">Arrivée</p>
-                  <p className="font-medium">
-                    {formatDate(reservation.dateArrivee)}
-                  </p>
-                  {isDatePassed(reservation.dateArrivee) ? (
-                    <span className="inline-block mt-1 px-2 py-1 bg-green-200 text-green-800 text-xs rounded">
-                      Passé
-                    </span>
-                  ) : isDatePassed(reservation.dateDepart) ? (
-                    <span className="inline-block mt-1 px-2 py-1 bg-blue-200 text-blue-800 text-xs rounded">
-                      En cours
-                    </span>
-                  ) : (
-                    <span className="inline-block mt-1 px-2 py-1 bg-gray-200 text-gray-800 text-xs rounded">
-                      À venir
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
+            {/* Onglet Éléments associés */}
+            {activeTab === "related" && (
+              <ReservationRelatedTab
+                patient={reservation.patient}
+                patientId={reservation.patientId}
+                lit={reservation.lit}
+                litId={reservation.litId}
+                service={reservation.service}
+              />
+            )}
           </div>
         </div>
 
         {/* Pied de page avec boutons d'action */}
         <div className="flex justify-between">
           <Link
-            to="/reservationsLit"
+            to="/reservations-lits"
             className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-2 px-6 rounded-lg transition-colors flex items-center"
           >
             <svg
@@ -641,7 +459,7 @@ const ReservationLitDetailPage: React.FC = () => {
             {reservation.patient && (
               <Link
                 to={`/patients/${reservation.patientId}`}
-                className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+                className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
               >
                 Voir le patient
               </Link>
@@ -649,7 +467,7 @@ const ReservationLitDetailPage: React.FC = () => {
             {reservation.lit && (
               <Link
                 to={`/lits/${reservation.litId}`}
-                className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+                className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
               >
                 Voir le lit
               </Link>

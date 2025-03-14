@@ -1,12 +1,15 @@
+import ReservationsTab from "@/components/tabs/ReservationsTab";
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { formatDate } from "../../utils/formatUtils";
 
 // Interfaces pour les données
 interface Lit {
   id: string;
   numeroLit: string;
   serviceId: string;
+  type?: string;
+  statut?: string;
+  chambre?: string;
 }
 
 interface Service {
@@ -17,9 +20,15 @@ interface Service {
 interface ReservationLit {
   id: string;
   patientId: string;
+  litId: string;
   dateDepart: string;
   dateArrivee: string;
   etablissementDestinationId: string;
+  patient?: {
+    id: string;
+    nom: string;
+    prenom: string;
+  };
 }
 
 interface LitDetails extends Lit {
@@ -120,11 +129,36 @@ const LitDetailPage: React.FC = () => {
 
         // Récupération des réservations associées au lit
         const reservationsResponse = await fetch(
-          `http://localhost:3000/reservationsLit?litId=${id}`
+          `http://localhost:3000/reservations-lits?litId=${id}`
         );
-        const reservations: ReservationLit[] = reservationsResponse.ok
+        let reservations: ReservationLit[] = reservationsResponse.ok
           ? await reservationsResponse.json()
           : [];
+
+        // Si nous avons des réservations, récupérons les informations des patients
+        if (reservations.length > 0) {
+          const patientIds = [...new Set(reservations.map((r) => r.patientId))];
+          const patientsData = await Promise.all(
+            patientIds.map((patientId) =>
+              fetch(`http://localhost:3000/patients/${patientId}`).then((res) =>
+                res.ok ? res.json() : null
+              )
+            )
+          );
+
+          // Association des patients aux réservations
+          reservations = reservations.map((reservation) => {
+            const patient = patientsData.find(
+              (p) => p && p.id === reservation.patientId
+            );
+            return {
+              ...reservation,
+              patient: patient
+                ? { id: patient.id, nom: patient.nom, prenom: patient.prenom }
+                : undefined,
+            };
+          });
+        }
 
         // Assemblage des données
         setLit({
@@ -380,7 +414,7 @@ const LitDetailPage: React.FC = () => {
                           Aucune réservation en cours
                         </p>
                         <Link
-                          to={`/reservationsLit/create?litId=${id}`}
+                          to={`/reservations-lits/create?litId=${id}`}
                           className="mt-4 inline-block bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md transition-colors"
                         >
                           Réserver ce lit
@@ -416,97 +450,10 @@ const LitDetailPage: React.FC = () => {
               </div>
             )}
 
-            {/* Onglet Réservations */}
-            {activeTab === "reservations" &&
-              (lit.reservations.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Patient
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Du
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Au
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Établissement
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {lit.reservations.map((reservation) => (
-                        <tr key={reservation.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Link
-                              to={`/patients/${reservation.patientId}`}
-                              className="text-blue-600 hover:underline"
-                            >
-                              {reservation.patientId}
-                            </Link>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {formatDate(reservation.dateDepart)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {formatDate(reservation.dateArrivee)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Link
-                              to={`/etablissements/${reservation.etablissementDestinationId}`}
-                              className="text-blue-600 hover:underline"
-                            >
-                              {reservation.etablissementDestinationId}
-                            </Link>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Link
-                              to={`/reservationsLit/${reservation.id}`}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              Détails
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-10 text-gray-500">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                    <svg
-                      className="w-8 h-8 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      ></path>
-                    </svg>
-                  </div>
-                  <p className="text-xl font-medium mb-2">Aucune réservation</p>
-                  <p className="mb-6">
-                    Ce lit n'a aucune réservation actuellement.
-                  </p>
-                  <Link
-                    to={`/reservationsLit/create?litId=${id}`}
-                    className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
-                  >
-                    Créer une réservation
-                  </Link>
-                </div>
-              ))}
+            {/* Onglet Réservations - Utilisation du composant ReservationsTab */}
+            {activeTab === "reservations" && lit && (
+              <ReservationsTab reservations={lit.reservations} litId={lit.id} />
+            )}
           </div>
         </div>
 
@@ -534,10 +481,16 @@ const LitDetailPage: React.FC = () => {
 
           <div className="flex space-x-3">
             <Link
-              to={`/reservationsLit/create?litId=${id}`}
+              to={`/reservations-lits/create?litId=${id}`}
               className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
             >
               Réserver ce lit
+            </Link>
+            <Link
+              to={`/lits/edit/${id}`}
+              className="bg-amber-500 hover:bg-amber-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+            >
+              Modifier ce lit
             </Link>
           </div>
         </div>

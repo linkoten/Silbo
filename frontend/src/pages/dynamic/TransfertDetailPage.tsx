@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { formatDate } from "../../utils/formatUtils";
+import TransfertDetailsTab from "@/components/tabs/TransfertDetailsTab";
+import TransfertPatientTab from "@/components/tabs/TransfertPatientTab";
 
 // Interfaces pour les données
 interface Transfert {
@@ -37,20 +39,6 @@ interface TransfertDetails extends Transfert {
   etablissementArrivee?: Etablissement;
 }
 
-// Composant Card réutilisable
-const Card: React.FC<{
-  title: string;
-  children: React.ReactNode;
-  className?: string;
-}> = ({ title, children, className = "" }) => (
-  <div className={`bg-white rounded-xl shadow-lg overflow-hidden ${className}`}>
-    <div className="bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-4">
-      <h3 className="text-white text-lg font-bold">{title}</h3>
-    </div>
-    <div className="p-6">{children}</div>
-  </div>
-);
-
 // Composant Badge
 const Badge: React.FC<{ children: React.ReactNode; color: string }> = ({
   children,
@@ -63,12 +51,32 @@ const Badge: React.FC<{ children: React.ReactNode; color: string }> = ({
   </span>
 );
 
+// Composant Tab pour les onglets
+const Tab: React.FC<{
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}> = ({ active, onClick, children }) => (
+  <button
+    onClick={onClick}
+    className={`px-6 py-3 font-medium text-sm transition-all duration-200 
+    ${
+      active
+        ? "border-b-2 border-blue-500 text-blue-600"
+        : "text-gray-500 hover:text-blue-500"
+    }`}
+  >
+    {children}
+  </button>
+);
+
 const TransfertDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [transfert, setTransfert] = useState<TransfertDetails | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"details" | "patient">("details");
 
   // Animation effet "pulse" pour simuler un chargement
   const [pulse, setPulse] = useState(false);
@@ -371,266 +379,38 @@ const TransfertDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Contenu principal */}
-          <div className="p-6">
-            <div className="grid grid-cols-1 gap-8 mb-8">
-              {/* Transfert visuel */}
-              <Card title="Informations générales">
-                <div className="my-6">
-                  <div className="flex flex-col md:flex-row items-center justify-between py-4">
-                    {/* Établissement/Service de départ */}
-                    <div className="md:w-5/12 mb-6 md:mb-0 text-center">
-                      <div className="flex flex-col items-center">
-                        <div className="p-4 bg-blue-100 rounded-full mb-3">
-                          <svg
-                            className="w-8 h-8 text-blue-600"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                            />
-                          </svg>
-                        </div>
-
-                        {/* Établissement de départ */}
-                        <h3 className="text-lg font-semibold">
-                          {transfert.etablissementDepart ? (
-                            <Link
-                              to={`/etablissements/${transfert.etablissementDepartId}`}
-                              className="text-blue-600 hover:underline"
-                            >
-                              {transfert.etablissementDepart.nom}
-                            </Link>
-                          ) : (
-                            <span className="text-gray-500">
-                              {transfert.etablissementDepartId}
-                            </span>
-                          )}
-                        </h3>
-
-                        {/* Service de départ */}
-                        <div className="mt-2">
-                          <p className="text-sm text-gray-500">Service</p>
-                          <p className="font-medium">
-                            {transfert.serviceDepart ? (
-                              <Link
-                                to={`/services/${transfert.serviceDepartId}`}
-                                className="text-blue-600 hover:underline"
-                              >
-                                {transfert.serviceDepart.nom}
-                              </Link>
-                            ) : (
-                              <span className="text-gray-500">
-                                {transfert.serviceDepartId}
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Flèche de transfert */}
-                    <div className="md:w-2/12 flex justify-center items-center mb-6 md:mb-0">
-                      <div className="hidden md:block w-full h-1 bg-blue-200 relative">
-                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white px-4">
-                          <svg
-                            className="w-6 h-6 text-blue-500"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M14 5l7 7m0 0l-7 7m7-7H3"
-                            />
-                          </svg>
-                        </div>
-                      </div>
-                      <div className="md:hidden">
-                        <svg
-                          className="w-8 h-8 text-blue-500 transform rotate-90"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M14 5l7 7m0 0l-7 7m7-7H3"
-                          />
-                        </svg>
-                      </div>
-                    </div>
-
-                    {/* Établissement/Service d'arrivée */}
-                    <div className="md:w-5/12 text-center">
-                      <div className="flex flex-col items-center">
-                        <div className="p-4 bg-green-100 rounded-full mb-3">
-                          <svg
-                            className="w-8 h-8 text-green-600"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                            />
-                          </svg>
-                        </div>
-
-                        {/* Établissement d'arrivée */}
-                        <h3 className="text-lg font-semibold">
-                          {transfert.etablissementArrivee ? (
-                            <Link
-                              to={`/etablissements/${transfert.etablissementArriveeId}`}
-                              className="text-green-600 hover:underline"
-                            >
-                              {transfert.etablissementArrivee.nom}
-                            </Link>
-                          ) : (
-                            <span className="text-gray-500">
-                              {transfert.etablissementArriveeId}
-                            </span>
-                          )}
-                        </h3>
-
-                        {/* Service d'arrivée */}
-                        <div className="mt-2">
-                          <p className="text-sm text-gray-500">Service</p>
-                          <p className="font-medium">
-                            {transfert.serviceArrivee ? (
-                              <Link
-                                to={`/services/${transfert.serviceArriveeId}`}
-                                className="text-green-600 hover:underline"
-                              >
-                                {transfert.serviceArrivee.nom}
-                              </Link>
-                            ) : (
-                              <span className="text-gray-500">
-                                {transfert.serviceArriveeId}
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-8 pt-6 border-t border-gray-200">
-                  <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                    {/* Date de transfert */}
-                    <div className="col-span-1">
-                      <dt className="text-sm font-medium text-gray-500">
-                        Date du transfert
-                      </dt>
-                      <dd className="mt-1 text-lg font-medium text-gray-900">
-                        {formatDate(transfert.dateTransfert)}
-                      </dd>
-                    </div>
-
-                    {/* Statut */}
-                    <div className="col-span-1">
-                      <dt className="text-sm font-medium text-gray-500">
-                        Statut du transfert
-                      </dt>
-                      <dd className="mt-1">
-                        <span
-                          className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${transfertStatusColor}`}
-                        >
-                          {transfertStatus}
-                        </span>
-                      </dd>
-                    </div>
-
-                    {/* ID du transfert */}
-                    <div className="col-span-2">
-                      <dt className="text-sm font-medium text-gray-500">
-                        Identifiant du transfert
-                      </dt>
-                      <dd className="mt-1 text-sm font-mono text-gray-400">
-                        {transfert.id}
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-              </Card>
-
-              {/* Information du patient */}
-              <Card title="Patient concerné" className="h-full">
-                {transfert.patient ? (
-                  <div className="flex items-center">
-                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-xl font-bold text-blue-700 mr-5">
-                      {transfert.patient.prenom.charAt(0)}
-                      {transfert.patient.nom.charAt(0)}
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-medium">
-                        {transfert.patient.prenom} {transfert.patient.nom}
-                      </h3>
-                      <div className="mt-3">
-                        <Link
-                          to={`/patients/${transfert.patientId}`}
-                          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors inline-flex items-center text-sm"
-                        >
-                          <svg
-                            className="w-4 h-4 mr-2"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                            />
-                          </svg>
-                          Voir le dossier patient
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-32 text-gray-400">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
-                      <svg
-                        className="w-8 h-8"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                        />
-                      </svg>
-                    </div>
-                    <p className="mb-1">Information patient non disponible</p>
-                    <p className="text-sm">ID: {transfert.patientId}</p>
-                  </div>
-                )}
-              </Card>
+          {/* Onglets de navigation */}
+          <div className="border-b">
+            <div className="flex overflow-x-auto">
+              <Tab
+                active={activeTab === "details"}
+                onClick={() => setActiveTab("details")}
+              >
+                Détails du transfert
+              </Tab>
+              <Tab
+                active={activeTab === "patient"}
+                onClick={() => setActiveTab("patient")}
+              >
+                Patient
+              </Tab>
             </div>
+          </div>
+
+          {/* Contenu des onglets */}
+          <div className="p-6">
+            {/* Onglet Détails */}
+            {activeTab === "details" && (
+              <TransfertDetailsTab transfert={transfert} />
+            )}
+
+            {/* Onglet Patient */}
+            {activeTab === "patient" && (
+              <TransfertPatientTab
+                patient={transfert.patient}
+                patientId={transfert.patientId}
+              />
+            )}
           </div>
         </div>
 
@@ -656,14 +436,22 @@ const TransfertDetailPage: React.FC = () => {
             Retour à la liste des transferts
           </Link>
 
-          {transfert.patient && (
+          <div className="flex space-x-3">
+            {transfert.patient && (
+              <Link
+                to={`/patients/${transfert.patientId}`}
+                className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+              >
+                Voir le dossier patient
+              </Link>
+            )}
             <Link
-              to={`/patients/${transfert.patientId}`}
-              className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+              to={`/transferts/create`}
+              className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
             >
-              Voir le patient
+              Nouveau transfert
             </Link>
-          )}
+          </div>
         </div>
       </div>
     </div>

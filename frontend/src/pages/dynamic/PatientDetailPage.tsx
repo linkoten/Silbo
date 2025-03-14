@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { formatDate } from "../../utils/formatUtils";
+import TransfertsTab from "@/components/tabs/TransfertsTab";
+import PrisesEnChargeTab from "@/components/tabs/PrisesEnChargeTab";
 
 // Interfaces pour les données
 interface Patient {
@@ -8,36 +9,54 @@ interface Patient {
   nom: string;
   prenom: string;
   dateNaissance: string;
-  numeroSecu: string;
-  dossierMedical?: string;
+  adresse?: string;
+  telephone?: string;
+  email?: string;
+  numeroSecu?: string;
+  groupeSanguin?: string;
+  allergie?: string;
+  antecedents?: string;
+  dateAdmission: string;
+  dateSortie?: string;
+  statut: string;
 }
 
 interface Transfert {
   id: string;
-  dateTransfert: string;
+  patientId: string;
+  date: string;
   serviceDepartId: string;
   serviceArriveeId: string;
-  etablissementDepartId: string;
-  etablissementArriveeId: string;
+  motif: string | null;
+  statut: string;
+  autorisePar?: string;
+  realiseePar?: string;
+  serviceDepartNom?: string;
+  serviceArriveeNom?: string;
 }
 
 interface PriseEnCharge {
   id: string;
+  patientId: string;
   personnelId: string;
-}
-
-interface ReservationLit {
-  id: string;
-  litId: string;
-  dateDepart: string;
-  dateArrivee: string;
-  etablissementDestinationId: string;
+  dateDebut: string;
+  dateFin?: string;
+  description?: string;
+  diagnostic?: string;
+  traitement?: string;
+  notes?: string;
+  personnel?: {
+    id: string;
+    nom: string;
+    prenom: string;
+    profession: string;
+  };
 }
 
 interface PatientDetails extends Patient {
   transferts: Transfert[];
   prisesEnCharge: PriseEnCharge[];
-  reservationsLit: ReservationLit[];
+  reservations?: any[]; // Optionnel, ajoutez si vous avez besoin d'afficher les réservations
 }
 
 // Composant Card réutilisable
@@ -92,7 +111,7 @@ const PatientDetailPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "info" | "transferts" | "reservations" | "prises"
+    "info" | "transferts" | "prisesEnCharge"
   >("info");
 
   // Animation effet "pulse" pour simuler un chargement
@@ -121,39 +140,95 @@ const PatientDetailPage: React.FC = () => {
 
         const patientData: Patient = await patientResponse.json();
 
-        // Récupération des transferts du patient
+        // Récupération des transferts liés à ce patient
         const transfertsResponse = await fetch(
           `http://localhost:3000/transferts?patientId=${id}`
         );
-        const transferts: Transfert[] = transfertsResponse.ok
+        let transferts: Transfert[] = transfertsResponse.ok
           ? await transfertsResponse.json()
           : [];
 
-        // Récupération des prises en charge
-        const prisesResponse = await fetch(
-          `http://localhost:3000/prisesEnCharge?patientId=${id}`
+        // Enrichir les transferts avec les noms des services
+        transferts = await Promise.all(
+          transferts.map(async (transfert) => {
+            // Récupération du service de départ
+            try {
+              const serviceDepartResponse = await fetch(
+                `http://localhost:3000/services/${transfert.serviceDepartId}`
+              );
+              if (serviceDepartResponse.ok) {
+                const serviceDepart = await serviceDepartResponse.json();
+                transfert.serviceDepartNom = serviceDepart.nom;
+              }
+            } catch (e) {
+              console.warn(
+                `Impossible de récupérer le service de départ ${transfert.serviceDepartId}`,
+                e
+              );
+            }
+
+            // Récupération du service d'arrivée
+            try {
+              const serviceArriveeResponse = await fetch(
+                `http://localhost:3000/services/${transfert.serviceArriveeId}`
+              );
+              if (serviceArriveeResponse.ok) {
+                const serviceArrivee = await serviceArriveeResponse.json();
+                transfert.serviceArriveeNom = serviceArrivee.nom;
+              }
+            } catch (e) {
+              console.warn(
+                `Impossible de récupérer le service d'arrivée ${transfert.serviceArriveeId}`,
+                e
+              );
+            }
+
+            return transfert;
+          })
         );
-        const prisesEnCharge: PriseEnCharge[] = prisesResponse.ok
-          ? await prisesResponse.json()
+
+        // Récupération des prises en charge liées à ce patient
+        const prisesEnChargeResponse = await fetch(
+          `http://localhost:3000/prises-en-charge?patientId=${id}`
+        );
+        let prisesEnCharge: PriseEnCharge[] = prisesEnChargeResponse.ok
+          ? await prisesEnChargeResponse.json()
           : [];
 
-        // Récupération des réservations de lit
-        const reservationsResponse = await fetch(
-          `http://localhost:3000/reservationsLit?patientId=${id}`
+        // Enrichir les prises en charge avec les infos des personnels
+        prisesEnCharge = await Promise.all(
+          prisesEnCharge.map(async (pec) => {
+            try {
+              const personnelResponse = await fetch(
+                `http://localhost:3000/personnels/${pec.personnelId}`
+              );
+              if (personnelResponse.ok) {
+                const personnel = await personnelResponse.json();
+                pec.personnel = {
+                  id: personnel.id,
+                  nom: personnel.nom,
+                  prenom: personnel.prenom,
+                  profession: personnel.profession,
+                };
+              }
+            } catch (e) {
+              console.warn(
+                `Impossible de récupérer le personnel ${pec.personnelId}`,
+                e
+              );
+            }
+            return pec;
+          })
         );
-        const reservationsLit: ReservationLit[] = reservationsResponse.ok
-          ? await reservationsResponse.json()
-          : [];
 
         // Assemblage des données
         setPatient({
           ...patientData,
           transferts,
           prisesEnCharge,
-          reservationsLit,
         });
       } catch (err) {
-        console.error("Erreur lors du chargement des données patient:", err);
+        console.error("Erreur lors du chargement des données du patient:", err);
         setError(err instanceof Error ? err.message : "Erreur inconnue");
       } finally {
         setLoading(false);
@@ -187,6 +262,28 @@ const PatientDetailPage: React.FC = () => {
     }
   };
 
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "Non définie";
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat("fr-FR").format(date);
+  };
+
+  const calculateAge = (dateString: string) => {
+    const birthDate = new Date(dateString);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birthDate.getDate())
+    ) {
+      age--;
+    }
+
+    return age;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -197,7 +294,7 @@ const PatientDetailPage: React.FC = () => {
         >
           <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-xl font-medium text-gray-700">
-            Chargement du dossier patient...
+            Chargement des données du patient...
           </p>
         </div>
       </div>
@@ -246,42 +343,36 @@ const PatientDetailPage: React.FC = () => {
     );
   }
 
-  // Calcul de l'âge du patient
-  const calculateAge = (dateNaissance: string) => {
-    const birthDate = new Date(dateNaissance);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const m = today.getMonth() - birthDate.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  };
-
-  const patientAge = calculateAge(patient.dateNaissance);
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-10">
       <div className="container mx-auto px-4 max-w-6xl">
-        {/* En-tête avec photo et informations principales */}
+        {/* En-tête */}
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden mb-8">
           <div className="bg-gradient-to-r from-blue-600 to-purple-700 py-6 px-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between">
               <div className="flex items-center mb-4 md:mb-0">
-                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-3xl font-bold text-blue-700 border-4 border-white shadow-lg mr-6">
-                  {patient.prenom.charAt(0)}
+                <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center text-2xl font-bold text-blue-700 border-4 border-white shadow-lg mr-6">
                   {patient.nom.charAt(0)}
+                  {patient.prenom.charAt(0)}
                 </div>
                 <div>
                   <h1 className="text-3xl font-bold text-white">
-                    {patient.prenom} {patient.nom}
+                    {patient.nom} {patient.prenom}
                   </h1>
                   <div className="mt-1 flex flex-wrap gap-2">
                     <Badge color="bg-blue-200 text-blue-800">
-                      {patientAge} ans
+                      {calculateAge(patient.dateNaissance)} ans
                     </Badge>
-                    <Badge color="bg-green-200 text-green-800">
-                      N° Sécu: {patient.numeroSecu}
+                    <Badge
+                      color={
+                        patient.statut === "Hospitalisé"
+                          ? "bg-green-200 text-green-800"
+                          : patient.statut === "Sortant"
+                          ? "bg-yellow-200 text-yellow-800"
+                          : "bg-gray-200 text-gray-800"
+                      }
+                    >
+                      {patient.statut}
                     </Badge>
                   </div>
                 </div>
@@ -345,14 +436,8 @@ const PatientDetailPage: React.FC = () => {
                 Transferts ({patient.transferts.length})
               </Tab>
               <Tab
-                active={activeTab === "reservations"}
-                onClick={() => setActiveTab("reservations")}
-              >
-                Réservations ({patient.reservationsLit.length})
-              </Tab>
-              <Tab
-                active={activeTab === "prises"}
-                onClick={() => setActiveTab("prises")}
+                active={activeTab === "prisesEnCharge"}
+                onClick={() => setActiveTab("prisesEnCharge")}
               >
                 Prises en charge ({patient.prisesEnCharge.length})
               </Tab>
@@ -368,10 +453,10 @@ const PatientDetailPage: React.FC = () => {
                   <dl className="grid grid-cols-1 gap-4">
                     <div>
                       <dt className="text-sm font-medium text-gray-500">
-                        Nom complet
+                        Nom et prénom
                       </dt>
                       <dd className="mt-1 text-lg text-gray-900 font-medium">
-                        {patient.prenom} {patient.nom}
+                        {patient.nom} {patient.prenom}
                       </dd>
                     </div>
                     <div>
@@ -379,197 +464,123 @@ const PatientDetailPage: React.FC = () => {
                         Date de naissance
                       </dt>
                       <dd className="mt-1 text-gray-900">
-                        {formatDate(patient.dateNaissance)} ({patientAge} ans)
+                        {formatDate(patient.dateNaissance)} (
+                        {calculateAge(patient.dateNaissance)} ans)
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">
+                        Adresse
+                      </dt>
+                      <dd className="mt-1 text-gray-900">
+                        {patient.adresse || "Non renseignée"}
                       </dd>
                     </div>
                     <div>
                       <dt className="text-sm font-medium text-gray-500">
                         Numéro de sécurité sociale
                       </dt>
-                      <dd className="mt-1 text-gray-900">
-                        {patient.numeroSecu}
+                      <dd className="mt-1 text-gray-900 font-mono">
+                        {patient.numeroSecu || "Non renseigné"}
                       </dd>
                     </div>
                     <div>
                       <dt className="text-sm font-medium text-gray-500">
-                        Identifiant patient
+                        Contact
                       </dt>
-                      <dd className="mt-1 text-gray-400 text-sm font-mono">
-                        {patient.id}
+                      <dd className="mt-1 text-gray-900">
+                        <div>
+                          {patient.telephone || "Téléphone non renseigné"}
+                        </div>
+                        <div>{patient.email || "Email non renseigné"}</div>
                       </dd>
                     </div>
                   </dl>
                 </Card>
 
-                <Card title="Dossier médical" className="h-full">
-                  {patient.dossierMedical ? (
-                    <div className="prose prose-sm max-w-none whitespace-pre-wrap">
-                      {patient.dossierMedical}
+                <Card title="Informations médicales" className="h-full">
+                  <dl className="grid grid-cols-1 gap-4">
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">
+                        Groupe sanguin
+                      </dt>
+                      <dd className="mt-1 text-gray-900">
+                        {patient.groupeSanguin || "Non renseigné"}
+                      </dd>
                     </div>
-                  ) : (
-                    <div className="flex items-center justify-center h-40 text-gray-400 italic">
-                      Aucune information médicale disponible
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">
+                        Allergies
+                      </dt>
+                      <dd className="mt-1 text-gray-900">
+                        {patient.allergie || "Aucune allergie connue"}
+                      </dd>
                     </div>
-                  )}
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">
+                        Antécédents médicaux
+                      </dt>
+                      <dd className="mt-1 text-gray-900">
+                        {patient.antecedents || "Aucun antécédent renseigné"}
+                      </dd>
+                    </div>
+                    <div className="pt-4 border-t border-gray-200">
+                      <dt className="text-sm font-medium text-gray-500">
+                        Date d'admission
+                      </dt>
+                      <dd className="mt-1 text-gray-900 font-medium">
+                        {formatDate(patient.dateAdmission)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">
+                        Date de sortie prévue
+                      </dt>
+                      <dd className="mt-1 text-gray-900">
+                        {patient.dateSortie
+                          ? formatDate(patient.dateSortie)
+                          : "Non définie"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">
+                        Statut
+                      </dt>
+                      <dd className="mt-1">
+                        <span
+                          className={`px-2 py-1 rounded-md text-sm font-medium 
+                          ${
+                            patient.statut === "Hospitalisé"
+                              ? "bg-green-100 text-green-800"
+                              : patient.statut === "Sortant"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-gray-100 text-gray-800"
+                          }`}
+                        >
+                          {patient.statut}
+                        </span>
+                      </dd>
+                    </div>
+                  </dl>
                 </Card>
               </div>
             )}
 
-            {/* Onglet Transferts */}
-            {activeTab === "transferts" &&
-              (patient.transferts.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Date
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Service départ
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Service arrivée
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {patient.transferts.map((transfert) => (
-                        <tr key={transfert.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {formatDate(transfert.dateTransfert)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {transfert.serviceDepartId}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {transfert.serviceArriveeId}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Link
-                              to={`/transferts/${transfert.id}`}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              Détails
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-10 text-gray-500">
-                  Aucun transfert enregistré pour ce patient
-                </div>
-              ))}
+            {/* Onglet Transferts - Utilisation du composant TransfertsTab */}
+            {activeTab === "transferts" && patient && (
+              <TransfertsTab
+                transferts={patient.transferts}
+                patientId={patient.id}
+              />
+            )}
 
-            {/* Onglet Réservations */}
-            {activeTab === "reservations" &&
-              (patient.reservationsLit.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Lit
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Du
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Au
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Établissement
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {patient.reservationsLit.map((reservation) => (
-                        <tr key={reservation.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {reservation.litId}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {formatDate(reservation.dateDepart)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {formatDate(reservation.dateArrivee)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {reservation.etablissementDestinationId}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Link
-                              to={`/reservationsLit/${reservation.id}`}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              Détails
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-10 text-gray-500">
-                  Aucune réservation de lit pour ce patient
-                </div>
-              ))}
-
-            {/* Onglet Prises en charge */}
-            {activeTab === "prises" &&
-              (patient.prisesEnCharge.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          ID
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Personnel
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {patient.prisesEnCharge.map((prise) => (
-                        <tr key={prise.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {prise.id}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {prise.personnelId}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Link
-                              to={`/prisesEnCharge/${prise.id}`}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              Détails
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-10 text-gray-500">
-                  Aucune prise en charge pour ce patient
-                </div>
-              ))}
+            {/* Onglet Prises en charge - Utilisation du composant PrisesEnChargeTab */}
+            {activeTab === "prisesEnCharge" && patient && (
+              <PrisesEnChargeTab
+                prisesEnCharge={patient.prisesEnCharge}
+                patientId={patient.id}
+              />
+            )}
           </div>
         </div>
 
@@ -592,21 +603,21 @@ const PatientDetailPage: React.FC = () => {
                 d="M10 19l-7-7m0 0l7-7m-7 7h18"
               />
             </svg>
-            Retour à la liste
+            Retour à la liste des patients
           </Link>
 
           <div className="flex space-x-3">
             <Link
-              to={`/prisesEnCharge/create?patientId=${id}`}
-              className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
-            >
-              Nouvelle prise en charge
-            </Link>
-            <Link
               to={`/transferts/create?patientId=${id}`}
               className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
             >
-              Nouveau transfert
+              Créer un transfert
+            </Link>
+            <Link
+              to={`/prises-en-charge/create?patientId=${id}`}
+              className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+            >
+              Créer une prise en charge
             </Link>
           </div>
         </div>

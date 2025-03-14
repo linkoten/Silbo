@@ -27,9 +27,13 @@ interface Reservation {
 
 interface ReservationsTabProps {
   reservations: Reservation[];
+  litId?: string; // Ajout du paramètre litId optionnel
 }
 
-const ReservationsTab: React.FC<ReservationsTabProps> = ({ reservations }) => {
+const ReservationsTab: React.FC<ReservationsTabProps> = ({
+  reservations,
+  litId,
+}) => {
   if (reservations.length > 0) {
     return (
       <div className="overflow-x-auto">
@@ -139,7 +143,11 @@ const ReservationsTab: React.FC<ReservationsTabProps> = ({ reservations }) => {
 
         <div className="mt-6 flex justify-center">
           <Link
-            to={`/reservations-lits/create`}
+            to={
+              litId
+                ? `/reservations-lits/create?litId=${litId}`
+                : `/reservations-lits/create`
+            }
             className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
           >
             Créer une nouvelle réservation
@@ -167,10 +175,15 @@ const ReservationsTab: React.FC<ReservationsTabProps> = ({ reservations }) => {
         </div>
         <p className="text-xl font-medium mb-2">Aucune réservation</p>
         <p className="mb-6">
-          Cet établissement n'a pas encore de réservations.
+          {litId ? "Ce lit" : "Cet établissement"} n'a pas encore de
+          réservations.
         </p>
         <Link
-          to={`/reservations-lits/create`}
+          to={
+            litId
+              ? `/reservations-lits/create?litId=${litId}`
+              : `/reservations-lits/create`
+          }
           className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
         >
           Créer une réservation
