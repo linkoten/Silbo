@@ -149,27 +149,16 @@ const ServiceDetailPage: React.FC = () => {
 
         const serviceData: Service = await serviceResponse.json();
 
-        // Récupération des données de l'établissement associé
-        let etablissementData: Etablissement | undefined = undefined;
-        try {
-          const etablissementResponse = await fetch(
-            `http://localhost:3000/etablissements/${serviceData.etablissementId}`
-          );
-          if (etablissementResponse.ok) {
-            etablissementData = await etablissementResponse.json();
-          }
-        } catch (err) {
-          console.warn(
-            "Impossible de récupérer les détails de l'établissement:",
-            err
-          );
-        }
-
-        // Récupération des lits associés à ce service
+        // Récupération uniquement des lits associés à ce service spécifique
         const litsResponse = await fetch(
           `http://localhost:3000/lits?serviceId=${id}`
         );
-        const lits: Lit[] = litsResponse.ok ? await litsResponse.json() : [];
+        let lits: Lit[] = litsResponse.ok ? await litsResponse.json() : [];
+
+        // Filtrage supplémentaire côté client pour s'assurer que seuls les lits du service actuel sont inclus
+        lits = lits.filter((lit) => lit.serviceId === id);
+
+        console.log("Lits filtrés pour le service", id, ":", lits);
 
         // Récupération du personnel associé à ce service
         const personnelsResponse = await fetch(
@@ -178,6 +167,24 @@ const ServiceDetailPage: React.FC = () => {
         const personnels: Personnel[] = personnelsResponse.ok
           ? await personnelsResponse.json()
           : [];
+
+        // Récupération des détails de l'établissement
+        let etablissementData: Etablissement | undefined = undefined;
+        if (serviceData.etablissementId) {
+          try {
+            const etablissementResponse = await fetch(
+              `http://localhost:3000/etablissements/${serviceData.etablissementId}`
+            );
+            if (etablissementResponse.ok) {
+              etablissementData = await etablissementResponse.json();
+            }
+          } catch (err) {
+            console.warn(
+              "Impossible de récupérer les détails de l'établissement:",
+              err
+            );
+          }
+        }
 
         // Assemblage des données
         setService({

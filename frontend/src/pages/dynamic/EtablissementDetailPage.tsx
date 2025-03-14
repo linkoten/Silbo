@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import ServicesTab from "@/components/tabs/ServicesTab";
+import PersonnelTab from "@/components/tabs/PersonnelTab";
+import ReservationsTab from "@/components/tabs/ReservationsTab";
 
 // Interfaces pour les données
 interface Etablissement {
   id: string;
   nom: string;
   adresse: string;
+  capacite: number; // Assurez-vous que capacite est inclus
 }
 
 interface Service {
@@ -13,10 +17,55 @@ interface Service {
   nom: string;
   capacite: number;
   etablissementId: string;
+  lits?: Lit[];
+}
+
+interface Lit {
+  id: string;
+  numeroLit: string;
+  serviceId: string;
+  statut?: string;
+  chambre?: string;
+}
+
+interface Personnel {
+  id: string;
+  nom: string;
+  prenom: string;
+  profession: string;
+  etablissementId: string;
+  serviceId?: string;
+}
+
+interface Reservation {
+  id: string;
+  patientId: string;
+  litId: string;
+  dateArrivee: string;
+  dateDepart: string;
+  etablissementDestinationId?: string;
+  patient?: {
+    id: string;
+    nom: string;
+    prenom: string;
+  };
+  lit?: {
+    id: string;
+    numeroLit: string;
+    serviceId: string;
+    chambre?: string;
+  };
+  service?: {
+    id: string;
+    nom: string;
+  };
 }
 
 interface EtablissementDetails extends Etablissement {
   services: Service[];
+  lits: Lit[];
+  personnels: Personnel[];
+  reservations: Reservation[];
 }
 
 // Composant Card réutilisable
@@ -45,6 +94,39 @@ const Badge: React.FC<{ children: React.ReactNode; color: string }> = ({
   </span>
 );
 
+// Composant pour l'indicateur de capacité
+const CapacityIndicator: React.FC<{ total: number; used: number }> = ({
+  total,
+  used,
+}) => {
+  const percentage = Math.min(100, Math.round((used / total) * 100)) || 0;
+  let colorClass = "bg-green-500";
+
+  if (percentage > 80) {
+    colorClass = "bg-red-500";
+  } else if (percentage > 50) {
+    colorClass = "bg-yellow-500";
+  }
+
+  return (
+    <div className="mt-4">
+      <div className="flex justify-between text-sm mb-1">
+        <span>{used} occupés</span>
+        <span>{total} total</span>
+      </div>
+      <div className="w-full bg-gray-200 rounded-full h-2">
+        <div
+          className={`${colorClass} h-2 rounded-full transition-all duration-500 ease-in-out`}
+          style={{ width: `${percentage}%` }}
+        ></div>
+      </div>
+      <div className="text-right text-xs text-gray-500 mt-1">
+        {percentage}% d'occupation
+      </div>
+    </div>
+  );
+};
+
 // Composant Tab pour les onglets
 const Tab: React.FC<{
   active: boolean;
@@ -71,7 +153,9 @@ const EtablissementDetailPage: React.FC = () => {
     useState<EtablissementDetails | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"info" | "services">("info");
+  const [activeTab, setActiveTab] = useState<
+    "info" | "services" | "personnel" | "reservations"
+  >("info");
 
   // Animation effet "pulse" pour simuler un chargement
   const [pulse, setPulse] = useState(false);
@@ -110,10 +194,117 @@ const EtablissementDetailPage: React.FC = () => {
           ? await servicesResponse.json()
           : [];
 
+        // Pour chaque service, récupérer et associer ses lits
+        const servicesWithLits = await Promise.all(
+          services.map(async (service) => {
+            const litsResponse = await fetch(
+              `http://localhost:3000/lits?serviceId=${service.id}`
+            );
+            const lits: Lit[] = litsResponse.ok
+              ? await litsResponse.json()
+              : [];
+
+            // Filtrage pour ne garder que les lits qui appartiennent vraiment à ce service
+            const serviceLits = lits.filter(
+              (lit) => lit.serviceId === service.id
+            );
+
+            return {
+              ...service,
+              lits: serviceLits,
+            };
+          })
+        );
+
+        // Récupération des personnels associés à l'établissement
+        const personnelsResponse = await fetch(
+          `http://localhost:3000/personnels?etablissementId=${id}`
+        );
+        const personnels: Personnel[] = personnelsResponse.ok
+          ? await personnelsResponse.json()
+          : [];
+
+        console.log("Personnels récupérés:", personnels.length);
+
+        // Récupération de tous les lits de l'établissement
+        const allLits = servicesWithLits.flatMap(
+          (service) => service.lits || []
+        );
+
+        // Récupération des réservations pour les lits de l'établissement
+        let allReservations: Reservation[] = [];
+        if (allLits.length > 0) {
+          const reservationsPromises = allLits.map((lit) =>
+            fetch(
+              `http://localhost:3000/reservations-lits?litId=${lit.id}`
+            ).then((res) => (res.ok ? res.json() : []))
+          );
+
+          const reservationsResults = await Promise.all(reservationsPromises);
+          const unfilteredReservations = reservationsResults.flat();
+
+          // Filtrage pour s'assurer que les réservations correspondent aux lits de l'établissement
+          allReservations = unfilteredReservations.filter((reservation) =>
+            allLits.some((lit) => lit.id === reservation.litId)
+          );
+
+          // Enrichir les réservations avec les informations des patients et des lits
+          if (allReservations.length > 0) {
+            // Récupérer tous les patients associés aux réservations
+            const patientIds = [
+              ...new Set(allReservations.map((r) => r.patientId)),
+            ];
+            const patientsPromises = patientIds.map((patientId) =>
+              fetch(`http://localhost:3000/patients/${patientId}`).then((res) =>
+                res.ok ? res.json() : null
+              )
+            );
+
+            const patientsResults = await Promise.all(patientsPromises);
+            const patients = patientsResults.filter((p) => p !== null);
+
+            // Associer les patients et les lits à chaque réservation
+            allReservations = allReservations.map((reservation) => {
+              const patient = patients.find(
+                (p) => p && p.id === reservation.patientId
+              );
+              const lit = allLits.find((l) => l.id === reservation.litId);
+              const service = lit
+                ? servicesWithLits.find((s) => s.id === lit.serviceId)
+                : undefined;
+
+              return {
+                ...reservation,
+                patient: patient
+                  ? { id: patient.id, nom: patient.nom, prenom: patient.prenom }
+                  : undefined,
+                lit: lit
+                  ? {
+                      id: lit.id,
+                      numeroLit: lit.numeroLit,
+                      serviceId: lit.serviceId,
+                      chambre: lit.chambre,
+                    }
+                  : undefined,
+                service: service
+                  ? { id: service.id, nom: service.nom }
+                  : undefined,
+              };
+            });
+          }
+
+          console.log("Réservations récupérées:", allReservations.length);
+        }
+
+        console.log("Services avec leurs lits:", servicesWithLits);
+
         // Assemblage des données
         setEtablissement({
           ...etablissementData,
-          services,
+          services: servicesWithLits,
+          lits: allLits,
+          personnels: personnels,
+          reservations: allReservations,
         });
       } catch (err) {
         console.error(
@@ -310,7 +501,19 @@ const EtablissementDetailPage: React.FC = () => {
                 active={activeTab === "services"}
                 onClick={() => setActiveTab("services")}
               >
-                Services ({etablissement.services.length})
+                Services ({etablissement?.services.length || 0})
+              </Tab>
+              <Tab
+                active={activeTab === "personnel"}
+                onClick={() => setActiveTab("personnel")}
+              >
+                Personnel ({etablissement?.personnels.length || 0})
+              </Tab>
+              <Tab
+                active={activeTab === "reservations"}
+                onClick={() => setActiveTab("reservations")}
+              >
+                Réservations ({etablissement?.reservations.length || 0})
               </Tab>
             </div>
           </div>
@@ -357,22 +560,44 @@ const EtablissementDetailPage: React.FC = () => {
                     <div className="mb-6">
                       <div className="flex justify-between items-center mb-2">
                         <span className="text-sm font-medium text-gray-600">
-                          Services disponibles
+                          Occupation des lits
                         </span>
                         <span className="text-lg font-bold text-blue-600">
-                          {etablissement.services.length}
+                          {etablissement.lits ? etablissement.lits.length : 0}/
+                          {etablissement.capacite}
                         </span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2.5">
-                        <div
-                          className="bg-blue-600 h-2.5 rounded-full"
-                          style={{
-                            width: `${Math.min(
-                              100,
-                              etablissement.services.length * 10
-                            )}%`,
-                          }}
-                        ></div>
+
+                      <CapacityIndicator
+                        total={etablissement.capacite}
+                        used={
+                          etablissement.lits ? etablissement.lits.length : 0
+                        }
+                      />
+
+                      <div className="mt-6">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center">
+                            <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                            <span className="text-sm">Disponible</span>
+                          </div>
+                          <span className="text-sm font-semibold">
+                            {etablissement.capacite -
+                              (etablissement.lits
+                                ? etablissement.lits.length
+                                : 0)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                            <span className="text-sm">Occupé</span>
+                          </div>
+                          <span className="text-sm font-semibold">
+                            {etablissement.lits ? etablissement.lits.length : 0}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -428,75 +653,27 @@ const EtablissementDetailPage: React.FC = () => {
               </div>
             )}
 
-            {/* Onglet Services */}
-            {activeTab === "services" &&
-              (etablissement.services.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Nom
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Capacité
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {etablissement.services.map((service) => (
-                        <tr key={service.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {service.nom}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {service.capacite} places
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Link
-                              to={`/services/${service.id}`}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              Détails
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-10 text-gray-500">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                    <svg
-                      className="w-8 h-8 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      ></path>
-                    </svg>
-                  </div>
-                  <p className="text-xl font-medium mb-2">Aucun service</p>
-                  <p className="mb-6">
-                    Cet établissement n'a pas encore de services enregistrés.
-                  </p>
-                  <Link
-                    to={`/services/create?etablissementId=${id}`}
-                    className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
-                  >
-                    Créer un service
-                  </Link>
-                </div>
-              ))}
+            {/* Onglet Services - Remplacé par le composant ServicesTab */}
+            {activeTab === "services" && etablissement && (
+              <ServicesTab
+                services={etablissement.services}
+                etablissementId={etablissement.id}
+              />
+            )}
+
+            {/* Onglet Personnel - Remplacé par le composant PersonnelTab */}
+            {activeTab === "personnel" && etablissement && (
+              <PersonnelTab
+                personnels={etablissement.personnels}
+                services={etablissement.services}
+                etablissementId={etablissement.id}
+              />
+            )}
+
+            {/* Onglet Réservations - Remplacé par le composant ReservationsTab */}
+            {activeTab === "reservations" && etablissement && (
+              <ReservationsTab reservations={etablissement.reservations} />
+            )}
           </div>
         </div>
 
@@ -528,6 +705,18 @@ const EtablissementDetailPage: React.FC = () => {
               className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
             >
               Ajouter un service
+            </Link>
+            <Link
+              to={`/personnels/create?etablissementId=${id}`}
+              className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+            >
+              Ajouter du personnel
+            </Link>
+            <Link
+              to={`/reservations-lits/create`}
+              className="bg-purple-500 hover:bg-purple-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+            >
+              Créer une réservation
             </Link>
           </div>
         </div>
