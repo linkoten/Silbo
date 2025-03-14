@@ -1,16 +1,20 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { materielFormSchema, serviceFormSchema } from "./userFormSchema";
+import {
+  materielFormSchema,
+  ServiceFormValues,
+} from "@/components/userFormSchema";
 import { z } from "zod";
+
+// Import des composants UI de ShadcnUI
+import { Button } from "@/components/ui/button";
+
+// Import du store Zustand et du composant ServiceDialog
+import { useDialogStore } from "@/stores/dialog-store";
+import ServiceDialog from "@/components/dialogs/ServiceDialog";
 
 // Types pour le formulaire
 type MaterielFormData = z.infer<typeof materielFormSchema>;
-type ServiceFormData = z.infer<typeof serviceFormSchema>;
-
-interface Service {
-  id: string;
-  nom: string;
-}
 
 const CreateMaterielPage: React.FC = () => {
   const [formData, setFormData] = useState<MaterielFormData>({
@@ -33,21 +37,10 @@ const CreateMaterielPage: React.FC = () => {
   const navigate = useNavigate();
 
   // État pour la liste des services
-  const [services, setServices] = useState<Service[]>([]);
+  const [services, setServices] = useState<ServiceFormValues[]>([]);
 
-  // État pour la modale de création de service
-  const [showServiceModal, setShowServiceModal] = useState<boolean>(false);
-  const [serviceForm, setServiceForm] = useState<ServiceFormData>({
-    nom: "",
-    description: null,
-    etablissementId: "",
-    etage: null,
-    aile: null,
-    capacite: 0,
-    statut: "Actif",
-    specialite: null,
-    responsableId: null,
-  });
+  // Accès au store dialog avec actions pour ouvrir les dialogs
+  const { setShowServiceDialog } = useDialogStore();
 
   // Charger la liste des services au chargement de la page
   useEffect(() => {
@@ -65,6 +58,15 @@ const CreateMaterielPage: React.FC = () => {
 
     fetchServices();
   }, []);
+
+  // Callback pour ajouter un nouveau service à la liste
+  const handleServiceCreated = (newService: ServiceFormValues) => {
+    setServices((prevServices) => [...prevServices, newService]);
+    setFormData((prevData) => ({
+      ...prevData,
+      serviceId: newService.id as string,
+    }));
+  };
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -143,63 +145,6 @@ const CreateMaterielPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Gestionnaire pour le formulaire de la modale de service
-  const handleServiceChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    setServiceForm({ ...serviceForm, [name]: value });
-  };
-
-  const handleServiceSubmit = async () => {
-    try {
-      const response = await fetch("http://localhost:3000/services", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(serviceForm),
-      });
-
-      if (!response.ok)
-        throw new Error("Erreur lors de la création du service");
-
-      const newService = await response.json();
-      setServices([...services, newService]);
-      setShowServiceModal(false);
-
-      // Sélectionner automatiquement le nouveau service
-      setFormData({ ...formData, serviceId: newService.id });
-    } catch (error) {
-      console.error("Erreur:", error);
-    }
-  };
-
-  // Composant Modal réutilisable
-  const Modal: React.FC<{
-    show: boolean;
-    onClose: () => void;
-    title: string;
-    children: React.ReactNode;
-  }> = ({ show, onClose, title, children }) => {
-    if (!show) return null;
-
-    return (
-      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-        <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-1/2 shadow-lg rounded-md bg-white">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium">{title}</h3>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-500"
-            >
-              <span className="text-2xl">&times;</span>
-            </button>
-          </div>
-          {children}
-        </div>
-      </div>
-    );
   };
 
   return (
@@ -448,7 +393,7 @@ const CreateMaterielPage: React.FC = () => {
             <button
               type="button"
               className="text-blue-500 hover:text-blue-700 text-sm"
-              onClick={() => setShowServiceModal(true)}
+              onClick={() => setShowServiceDialog(true)}
             >
               + Ajouter un service
             </button>
@@ -503,97 +448,26 @@ const CreateMaterielPage: React.FC = () => {
 
         {/* Boutons */}
         <div className="flex items-center justify-between">
-          <button
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+          <Button
             type="submit"
+            className="bg-blue-500 hover:bg-blue-700"
             disabled={loading}
           >
             {loading ? "Enregistrement..." : "Enregistrer"}
-          </button>
-          <button
-            className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            className="bg-gray-500 hover:bg-gray-700 text-white"
             onClick={() => navigate("/materiels")}
           >
             Annuler
-          </button>
+          </Button>
         </div>
       </form>
 
-      {/* Modal pour créer un service */}
-      <Modal
-        show={showServiceModal}
-        onClose={() => setShowServiceModal(false)}
-        title="Ajouter un service"
-      >
-        <div className="p-4">
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="service-nom"
-            >
-              Nom du service
-            </label>
-            <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="service-nom"
-              type="text"
-              name="nom"
-              value={serviceForm.nom}
-              onChange={handleServiceChange}
-              required
-            />
-          </div>
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="service-description"
-            >
-              Description
-            </label>
-            <textarea
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="service-description"
-              name="description"
-              value={serviceForm.description || ""}
-              onChange={handleServiceChange}
-            />
-          </div>
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="service-etablissementId"
-            >
-              ID de l'établissement
-            </label>
-            <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="service-etablissementId"
-              type="text"
-              name="etablissementId"
-              value={serviceForm.etablissementId}
-              onChange={handleServiceChange}
-              required
-            />
-          </div>
-          <div className="flex justify-end">
-            <button
-              type="button"
-              className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded mr-2"
-              onClick={() => setShowServiceModal(false)}
-            >
-              Annuler
-            </button>
-            <button
-              type="button"
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-              onClick={handleServiceSubmit}
-            >
-              Enregistrer
-            </button>
-          </div>
-        </div>
-      </Modal>
+      {/* Utilisation du composant Dialog pour créer un service */}
+      <ServiceDialog onServiceCreated={handleServiceCreated} />
     </div>
   );
 };

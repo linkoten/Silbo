@@ -1,30 +1,43 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { formatDate } from "../utils/formatUtils";
+import { formatDate } from "../../utils/formatUtils";
 
 // Interfaces pour les données
-interface Lit {
-  id: string;
-  numeroLit: string;
-  serviceId: string;
-}
-
-interface Service {
+interface Patient {
   id: string;
   nom: string;
+  prenom: string;
+  dateNaissance: string;
+  numeroSecu: string;
+  dossierMedical?: string;
+}
+
+interface Transfert {
+  id: string;
+  dateTransfert: string;
+  serviceDepartId: string;
+  serviceArriveeId: string;
+  etablissementDepartId: string;
+  etablissementArriveeId: string;
+}
+
+interface PriseEnCharge {
+  id: string;
+  personnelId: string;
 }
 
 interface ReservationLit {
   id: string;
-  patientId: string;
+  litId: string;
   dateDepart: string;
   dateArrivee: string;
   etablissementDestinationId: string;
 }
 
-interface LitDetails extends Lit {
-  service?: Service;
-  reservations: ReservationLit[];
+interface PatientDetails extends Patient {
+  transferts: Transfert[];
+  prisesEnCharge: PriseEnCharge[];
+  reservationsLit: ReservationLit[];
 }
 
 // Composant Card réutilisable
@@ -72,13 +85,15 @@ const Tab: React.FC<{
   </button>
 );
 
-const LitDetailPage: React.FC = () => {
+const PatientDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [lit, setLit] = useState<LitDetails | null>(null);
+  const [patient, setPatient] = useState<PatientDetails | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"info" | "reservations">("info");
+  const [activeTab, setActiveTab] = useState<
+    "info" | "transferts" | "reservations" | "prises"
+  >("info");
 
   // Animation effet "pulse" pour simuler un chargement
   const [pulse, setPulse] = useState(false);
@@ -91,49 +106,54 @@ const LitDetailPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const fetchLitDetails = async () => {
+    const fetchPatientDetails = async () => {
       try {
         setLoading(true);
 
-        // Récupération des données du lit
-        const litResponse = await fetch(`http://localhost:3000/lits/${id}`);
-
-        if (!litResponse.ok) {
-          throw new Error(`Lit non trouvé (${litResponse.status})`);
-        }
-
-        const litData: Lit = await litResponse.json();
-
-        // Récupération des données du service associé
-        let serviceData: Service | undefined = undefined;
-        try {
-          const serviceResponse = await fetch(
-            `http://localhost:3000/services/${litData.serviceId}`
-          );
-          if (serviceResponse.ok) {
-            serviceData = await serviceResponse.json();
-          }
-        } catch (err) {
-          // Gérer silencieusement les erreurs de relation
-          console.warn("Impossible de récupérer les détails du service:", err);
-        }
-
-        // Récupération des réservations associées au lit
-        const reservationsResponse = await fetch(
-          `http://localhost:3000/reservationsLit?litId=${id}`
+        // Récupération des données du patient
+        const patientResponse = await fetch(
+          `http://localhost:3000/patients/${id}`
         );
-        const reservations: ReservationLit[] = reservationsResponse.ok
+
+        if (!patientResponse.ok) {
+          throw new Error(`Patient non trouvé (${patientResponse.status})`);
+        }
+
+        const patientData: Patient = await patientResponse.json();
+
+        // Récupération des transferts du patient
+        const transfertsResponse = await fetch(
+          `http://localhost:3000/transferts?patientId=${id}`
+        );
+        const transferts: Transfert[] = transfertsResponse.ok
+          ? await transfertsResponse.json()
+          : [];
+
+        // Récupération des prises en charge
+        const prisesResponse = await fetch(
+          `http://localhost:3000/prisesEnCharge?patientId=${id}`
+        );
+        const prisesEnCharge: PriseEnCharge[] = prisesResponse.ok
+          ? await prisesResponse.json()
+          : [];
+
+        // Récupération des réservations de lit
+        const reservationsResponse = await fetch(
+          `http://localhost:3000/reservationsLit?patientId=${id}`
+        );
+        const reservationsLit: ReservationLit[] = reservationsResponse.ok
           ? await reservationsResponse.json()
           : [];
 
         // Assemblage des données
-        setLit({
-          ...litData,
-          service: serviceData,
-          reservations,
+        setPatient({
+          ...patientData,
+          transferts,
+          prisesEnCharge,
+          reservationsLit,
         });
       } catch (err) {
-        console.error("Erreur lors du chargement des données du lit:", err);
+        console.error("Erreur lors du chargement des données patient:", err);
         setError(err instanceof Error ? err.message : "Erreur inconnue");
       } finally {
         setLoading(false);
@@ -141,17 +161,17 @@ const LitDetailPage: React.FC = () => {
     };
 
     if (id) {
-      fetchLitDetails();
+      fetchPatientDetails();
     }
   }, [id]);
 
   const handleDelete = async () => {
-    if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce lit ?")) {
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce patient ?")) {
       return;
     }
 
     try {
-      const response = await fetch(`http://localhost:3000/lits/${id}`, {
+      const response = await fetch(`http://localhost:3000/patients/${id}`, {
         method: "DELETE",
       });
 
@@ -159,7 +179,7 @@ const LitDetailPage: React.FC = () => {
         throw new Error(`Erreur lors de la suppression: ${response.status}`);
       }
 
-      navigate("/lits");
+      navigate("/patients");
     } catch (err) {
       alert(
         err instanceof Error ? err.message : "Erreur lors de la suppression"
@@ -177,7 +197,7 @@ const LitDetailPage: React.FC = () => {
         >
           <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-xl font-medium text-gray-700">
-            Chargement des informations du lit...
+            Chargement du dossier patient...
           </p>
         </div>
       </div>
@@ -206,51 +226,69 @@ const LitDetailPage: React.FC = () => {
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Erreur</h2>
           <p className="text-gray-600">{error}</p>
           <Link
-            to="/lits"
+            to="/patients"
             className="mt-6 inline-block bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
           >
-            Retour à la liste des lits
+            Retour à la liste des patients
           </Link>
         </div>
       </div>
     );
   }
 
-  if (!lit) {
+  if (!patient) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center text-gray-600">
-          <p className="text-xl">Lit non trouvé</p>
+          <p className="text-xl">Patient non trouvé</p>
         </div>
       </div>
     );
   }
 
+  // Calcul de l'âge du patient
+  const calculateAge = (dateNaissance: string) => {
+    const birthDate = new Date(dateNaissance);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const patientAge = calculateAge(patient.dateNaissance);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-10">
       <div className="container mx-auto px-4 max-w-6xl">
-        {/* En-tête */}
+        {/* En-tête avec photo et informations principales */}
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden mb-8">
           <div className="bg-gradient-to-r from-blue-600 to-purple-700 py-6 px-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between">
               <div className="flex items-center mb-4 md:mb-0">
-                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-2xl font-bold text-blue-700 border-4 border-white shadow-lg mr-6">
-                  {lit.numeroLit}
+                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-3xl font-bold text-blue-700 border-4 border-white shadow-lg mr-6">
+                  {patient.prenom.charAt(0)}
+                  {patient.nom.charAt(0)}
                 </div>
                 <div>
                   <h1 className="text-3xl font-bold text-white">
-                    Lit n°{lit.numeroLit}
+                    {patient.prenom} {patient.nom}
                   </h1>
-                  {lit.service && (
-                    <Badge color="bg-green-200 text-green-800">
-                      Service: {lit.service.nom}
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    <Badge color="bg-blue-200 text-blue-800">
+                      {patientAge} ans
                     </Badge>
-                  )}
+                    <Badge color="bg-green-200 text-green-800">
+                      N° Sécu: {patient.numeroSecu}
+                    </Badge>
+                  </div>
                 </div>
               </div>
               <div className="flex space-x-3">
                 <Link
-                  to={`/lits/edit/${id}`}
+                  to={`/patients/edit/${id}`}
                   className="bg-white hover:bg-gray-100 text-blue-600 px-4 py-2 rounded-lg shadow-md transition-all transform hover:-translate-y-1 flex items-center"
                 >
                   <svg
@@ -301,10 +339,22 @@ const LitDetailPage: React.FC = () => {
                 Informations
               </Tab>
               <Tab
+                active={activeTab === "transferts"}
+                onClick={() => setActiveTab("transferts")}
+              >
+                Transferts ({patient.transferts.length})
+              </Tab>
+              <Tab
                 active={activeTab === "reservations"}
                 onClick={() => setActiveTab("reservations")}
               >
-                Réservations ({lit.reservations.length})
+                Réservations ({patient.reservationsLit.length})
+              </Tab>
+              <Tab
+                active={activeTab === "prises"}
+                onClick={() => setActiveTab("prises")}
+              >
+                Prises en charge ({patient.prisesEnCharge.length})
               </Tab>
             </div>
           </div>
@@ -314,117 +364,118 @@ const LitDetailPage: React.FC = () => {
             {/* Onglet Informations */}
             {activeTab === "info" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <Card title="Informations du lit" className="h-full">
+                <Card title="Informations personnelles" className="h-full">
                   <dl className="grid grid-cols-1 gap-4">
                     <div>
                       <dt className="text-sm font-medium text-gray-500">
-                        Numéro de lit
+                        Nom complet
                       </dt>
                       <dd className="mt-1 text-lg text-gray-900 font-medium">
-                        {lit.numeroLit}
+                        {patient.prenom} {patient.nom}
                       </dd>
                     </div>
                     <div>
                       <dt className="text-sm font-medium text-gray-500">
-                        Service
+                        Date de naissance
                       </dt>
                       <dd className="mt-1 text-gray-900">
-                        {lit.service ? (
-                          <Link
-                            to={`/services/${lit.serviceId}`}
-                            className="text-blue-600 hover:underline"
-                          >
-                            {lit.service.nom}
-                          </Link>
-                        ) : (
-                          <span className="text-gray-500">
-                            ID: {lit.serviceId}
-                          </span>
-                        )}
+                        {formatDate(patient.dateNaissance)} ({patientAge} ans)
                       </dd>
                     </div>
                     <div>
                       <dt className="text-sm font-medium text-gray-500">
-                        Identifiant du lit
+                        Numéro de sécurité sociale
+                      </dt>
+                      <dd className="mt-1 text-gray-900">
+                        {patient.numeroSecu}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">
+                        Identifiant patient
                       </dt>
                       <dd className="mt-1 text-gray-400 text-sm font-mono">
-                        {lit.id}
+                        {patient.id}
                       </dd>
                     </div>
                   </dl>
                 </Card>
 
-                <Card title="Disponibilité" className="h-full">
-                  <div className="flex flex-col items-center justify-center h-full">
-                    {lit.reservations.length === 0 ? (
-                      <div>
-                        <span className="inline-block p-3 bg-green-100 text-green-700 rounded-full mb-4">
-                          <svg
-                            className="w-8 h-8"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M5 13l4 4L19 7"
-                            ></path>
-                          </svg>
-                        </span>
-                        <p className="text-gray-900 font-medium text-lg">
-                          Lit disponible
-                        </p>
-                        <p className="text-gray-500 mt-2">
-                          Aucune réservation en cours
-                        </p>
-                        <Link
-                          to={`/reservationsLit/create?litId=${id}`}
-                          className="mt-4 inline-block bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md transition-colors"
-                        >
-                          Réserver ce lit
-                        </Link>
-                      </div>
-                    ) : (
-                      <div>
-                        <span className="inline-block p-3 bg-yellow-100 text-yellow-700 rounded-full mb-4">
-                          <svg
-                            className="w-8 h-8"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                            ></path>
-                          </svg>
-                        </span>
-                        <p className="text-gray-900 font-medium text-lg">
-                          Lit réservé
-                        </p>
-                        <p className="text-gray-500 mt-2">
-                          {lit.reservations.length} réservation(s) active(s)
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                <Card title="Dossier médical" className="h-full">
+                  {patient.dossierMedical ? (
+                    <div className="prose prose-sm max-w-none whitespace-pre-wrap">
+                      {patient.dossierMedical}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-40 text-gray-400 italic">
+                      Aucune information médicale disponible
+                    </div>
+                  )}
                 </Card>
               </div>
             )}
 
-            {/* Onglet Réservations */}
-            {activeTab === "reservations" &&
-              (lit.reservations.length > 0 ? (
+            {/* Onglet Transferts */}
+            {activeTab === "transferts" &&
+              (patient.transferts.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Patient
+                          Date
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Service départ
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Service arrivée
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {patient.transferts.map((transfert) => (
+                        <tr key={transfert.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {formatDate(transfert.dateTransfert)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {transfert.serviceDepartId}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {transfert.serviceArriveeId}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <Link
+                              to={`/transferts/${transfert.id}`}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
+                              Détails
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-10 text-gray-500">
+                  Aucun transfert enregistré pour ce patient
+                </div>
+              ))}
+
+            {/* Onglet Réservations */}
+            {activeTab === "reservations" &&
+              (patient.reservationsLit.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Lit
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Du
@@ -441,15 +492,10 @@ const LitDetailPage: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {lit.reservations.map((reservation) => (
+                      {patient.reservationsLit.map((reservation) => (
                         <tr key={reservation.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <Link
-                              to={`/patients/${reservation.patientId}`}
-                              className="text-blue-600 hover:underline"
-                            >
-                              {reservation.patientId}
-                            </Link>
+                            {reservation.litId}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {formatDate(reservation.dateDepart)}
@@ -458,12 +504,7 @@ const LitDetailPage: React.FC = () => {
                             {formatDate(reservation.dateArrivee)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <Link
-                              to={`/etablissements/${reservation.etablissementDestinationId}`}
-                              className="text-blue-600 hover:underline"
-                            >
-                              {reservation.etablissementDestinationId}
-                            </Link>
+                            {reservation.etablissementDestinationId}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <Link
@@ -480,31 +521,53 @@ const LitDetailPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="text-center py-10 text-gray-500">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                    <svg
-                      className="w-8 h-8 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      ></path>
-                    </svg>
-                  </div>
-                  <p className="text-xl font-medium mb-2">Aucune réservation</p>
-                  <p className="mb-6">
-                    Ce lit n'a aucune réservation actuellement.
-                  </p>
-                  <Link
-                    to={`/reservationsLit/create?litId=${id}`}
-                    className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
-                  >
-                    Créer une réservation
-                  </Link>
+                  Aucune réservation de lit pour ce patient
+                </div>
+              ))}
+
+            {/* Onglet Prises en charge */}
+            {activeTab === "prises" &&
+              (patient.prisesEnCharge.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          ID
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Personnel
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {patient.prisesEnCharge.map((prise) => (
+                        <tr key={prise.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {prise.id}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {prise.personnelId}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <Link
+                              to={`/prisesEnCharge/${prise.id}`}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
+                              Détails
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-10 text-gray-500">
+                  Aucune prise en charge pour ce patient
                 </div>
               ))}
           </div>
@@ -513,7 +576,7 @@ const LitDetailPage: React.FC = () => {
         {/* Pied de page avec boutons d'action */}
         <div className="flex justify-between">
           <Link
-            to="/lits"
+            to="/patients"
             className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-2 px-6 rounded-lg transition-colors flex items-center"
           >
             <svg
@@ -529,15 +592,21 @@ const LitDetailPage: React.FC = () => {
                 d="M10 19l-7-7m0 0l7-7m-7 7h18"
               />
             </svg>
-            Retour à la liste des lits
+            Retour à la liste
           </Link>
 
           <div className="flex space-x-3">
             <Link
-              to={`/reservationsLit/create?litId=${id}`}
+              to={`/prisesEnCharge/create?patientId=${id}`}
+              className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+            >
+              Nouvelle prise en charge
+            </Link>
+            <Link
+              to={`/transferts/create?patientId=${id}`}
               className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
             >
-              Réserver ce lit
+              Nouveau transfert
             </Link>
           </div>
         </div>
@@ -546,4 +615,4 @@ const LitDetailPage: React.FC = () => {
   );
 };
 
-export default LitDetailPage;
+export default PatientDetailPage;

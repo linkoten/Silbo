@@ -2,28 +2,21 @@ import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   priseEnChargeFormSchema,
-  personnelFormSchema,
-  patientFormSchema,
-} from "./userFormSchema";
+  PersonnelFormValues,
+  PatientFormValues,
+} from "@/components/userFormSchema";
 import { z } from "zod";
+
+// Import des composants UI de base
+import { Button } from "@/components/ui/button";
+
+// Import du store Zustand et des composants Dialog
+import { useDialogStore } from "@/stores/dialog-store";
+import PatientDialog from "@/components/dialogs/PatientDialog";
+import PersonnelDialog from "@/components/dialogs/PersonnelDialog"; // Ce composant doit être créé
 
 // Types pour le formulaire
 type PriseEnChargeFormData = z.infer<typeof priseEnChargeFormSchema>;
-type PersonnelFormData = z.infer<typeof personnelFormSchema>;
-type PatientFormData = z.infer<typeof patientFormSchema>;
-
-interface Personnel {
-  id: string;
-  nom: string;
-  prenom: string;
-  profession: string;
-}
-
-interface Patient {
-  id: string;
-  nom: string;
-  prenom: string;
-}
 
 const CreatePriseEnChargePage: React.FC = () => {
   const [formData, setFormData] = useState<PriseEnChargeFormData>({
@@ -43,44 +36,11 @@ const CreatePriseEnChargePage: React.FC = () => {
   const navigate = useNavigate();
 
   // États pour les listes de données
-  const [personnels, setPersonnels] = useState<Personnel[]>([]);
-  const [patients, setPatients] = useState<Patient[]>([]);
+  const [personnels, setPersonnels] = useState<PersonnelFormValues[]>([]);
+  const [patients, setPatients] = useState<PatientFormValues[]>([]);
 
-  // États pour les modales
-  const [showPersonnelModal, setShowPersonnelModal] = useState<boolean>(false);
-  const [showPatientModal, setShowPatientModal] = useState<boolean>(false);
-
-  // États pour les formulaires de modales
-  const [personnelForm, setPersonnelForm] = useState<PersonnelFormData>({
-    nom: "",
-    prenom: "",
-    dateNaissance: null,
-    email: null,
-    telephone: null,
-    profession: "",
-    specialite: null,
-    matricule: null,
-    serviceId: null,
-    dateEmbauche: null,
-    statut: "Actif",
-    etablissementId: null,
-  });
-
-  const [patientForm, setPatientForm] = useState<PatientFormData>({
-    nom: "",
-    prenom: "",
-    dateNaissance: new Date(),
-    adresse: null,
-    telephone: null,
-    email: null,
-    numeroSecu: null,
-    groupeSanguin: null,
-    allergie: null,
-    antecedents: null,
-    dateAdmission: new Date(),
-    dateSortie: null,
-    statut: "Hospitalisé",
-  });
+  // Accès au store dialog avec actions pour ouvrir les dialogs
+  const { setShowPatientDialog, setShowPersonnelDialog } = useDialogStore();
 
   // Charger les données au chargement de la page
   useEffect(() => {
@@ -185,112 +145,21 @@ const CreatePriseEnChargePage: React.FC = () => {
     }
   };
 
-  // Gestionnaires pour les formulaires de modales
-  const handlePersonnelChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    const { name, value, type } = e.target;
-
-    if (type === "date") {
-      setPersonnelForm({
-        ...personnelForm,
-        [name]: value ? new Date(value) : null,
-      });
-    } else {
-      setPersonnelForm({
-        ...personnelForm,
-        [name]: value,
-      });
-    }
+  // Callbacks pour les créations d'entités
+  const handlePatientCreated = (newPatient: PatientFormValues): void => {
+    setPatients((prevPatients) => [...prevPatients, newPatient]);
+    setFormData((prevData) => ({
+      ...prevData,
+      patientId: newPatient.id as string,
+    }));
   };
 
-  const handlePatientChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value, type } = e.target;
-
-    if (type === "date") {
-      setPatientForm({
-        ...patientForm,
-        [name]: value ? new Date(value) : null,
-      });
-    } else {
-      setPatientForm({
-        ...patientForm,
-        [name]: value,
-      });
-    }
-  };
-
-  const handlePersonnelSubmit = async () => {
-    try {
-      const response = await fetch("http://localhost:3000/personnels", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(personnelForm),
-      });
-
-      if (!response.ok)
-        throw new Error("Erreur lors de la création du personnel");
-
-      const newPersonnel = await response.json();
-      setPersonnels([...personnels, newPersonnel]);
-      setShowPersonnelModal(false);
-
-      // Sélectionner automatiquement le nouveau personnel
-      setFormData({ ...formData, personnelId: newPersonnel.id });
-    } catch (error) {
-      console.error("Erreur:", error);
-    }
-  };
-
-  const handlePatientSubmit = async () => {
-    try {
-      const response = await fetch("http://localhost:3000/patients", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patientForm),
-      });
-
-      if (!response.ok)
-        throw new Error("Erreur lors de la création du patient");
-
-      const newPatient = await response.json();
-      setPatients([...patients, newPatient]);
-      setShowPatientModal(false);
-
-      // Sélectionner automatiquement le nouveau patient
-      setFormData({ ...formData, patientId: newPatient.id });
-    } catch (error) {
-      console.error("Erreur:", error);
-    }
-  };
-
-  // Composant Modal réutilisable
-  const Modal: React.FC<{
-    show: boolean;
-    onClose: () => void;
-    title: string;
-    children: React.ReactNode;
-  }> = ({ show, onClose, title, children }) => {
-    if (!show) return null;
-
-    return (
-      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-        <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-1/2 shadow-lg rounded-md bg-white">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium">{title}</h3>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-500"
-            >
-              <span className="text-2xl">&times;</span>
-            </button>
-          </div>
-          {children}
-        </div>
-      </div>
-    );
+  const handlePersonnelCreated = (newPersonnel: PersonnelFormValues): void => {
+    setPersonnels((prevPersonnels) => [...prevPersonnels, newPersonnel]);
+    setFormData((prevData) => ({
+      ...prevData,
+      personnelId: newPersonnel.id as string,
+    }));
   };
 
   return (
@@ -321,7 +190,7 @@ const CreatePriseEnChargePage: React.FC = () => {
             <button
               type="button"
               className="text-blue-500 hover:text-blue-700 text-sm"
-              onClick={() => setShowPersonnelModal(true)}
+              onClick={() => setShowPersonnelDialog(true)}
             >
               + Ajouter un personnel
             </button>
@@ -360,7 +229,7 @@ const CreatePriseEnChargePage: React.FC = () => {
             <button
               type="button"
               className="text-blue-500 hover:text-blue-700 text-sm"
-              onClick={() => setShowPatientModal(true)}
+              onClick={() => setShowPatientDialog(true)}
             >
               + Ajouter un patient
             </button>
@@ -532,176 +401,27 @@ const CreatePriseEnChargePage: React.FC = () => {
 
         {/* Boutons */}
         <div className="flex items-center justify-between">
-          <button
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+          <Button
             type="submit"
+            className="bg-blue-500 hover:bg-blue-700"
             disabled={loading}
           >
             {loading ? "Enregistrement..." : "Enregistrer"}
-          </button>
-          <button
-            className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            className="bg-gray-500 hover:bg-gray-700 text-white"
             onClick={() => navigate("/prises-en-charge")}
           >
             Annuler
-          </button>
+          </Button>
         </div>
       </form>
 
-      {/* Modal pour créer un personnel */}
-      <Modal
-        show={showPersonnelModal}
-        onClose={() => setShowPersonnelModal(false)}
-        title="Ajouter un personnel"
-      >
-        <div className="p-4">
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="personnel-nom"
-            >
-              Nom
-            </label>
-            <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="personnel-nom"
-              type="text"
-              name="nom"
-              value={personnelForm.nom}
-              onChange={handlePersonnelChange}
-              required
-            />
-          </div>
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="personnel-prenom"
-            >
-              Prénom
-            </label>
-            <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="personnel-prenom"
-              type="text"
-              name="prenom"
-              value={personnelForm.prenom}
-              onChange={handlePersonnelChange}
-              required
-            />
-          </div>
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="personnel-profession"
-            >
-              Profession
-            </label>
-            <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="personnel-profession"
-              type="text"
-              name="profession"
-              value={personnelForm.profession}
-              onChange={handlePersonnelChange}
-              required
-            />
-          </div>
-          <div className="flex justify-end">
-            <button
-              type="button"
-              className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded mr-2"
-              onClick={() => setShowPersonnelModal(false)}
-            >
-              Annuler
-            </button>
-            <button
-              type="button"
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-              onClick={handlePersonnelSubmit}
-            >
-              Enregistrer
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Modal pour créer un patient */}
-      <Modal
-        show={showPatientModal}
-        onClose={() => setShowPatientModal(false)}
-        title="Ajouter un patient"
-      >
-        <div className="p-4">
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="patient-nom"
-            >
-              Nom
-            </label>
-            <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="patient-nom"
-              type="text"
-              name="nom"
-              value={patientForm.nom}
-              onChange={handlePatientChange}
-              required
-            />
-          </div>
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="patient-prenom"
-            >
-              Prénom
-            </label>
-            <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="patient-prenom"
-              type="text"
-              name="prenom"
-              value={patientForm.prenom}
-              onChange={handlePatientChange}
-              required
-            />
-          </div>
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="patient-dateNaissance"
-            >
-              Date de naissance
-            </label>
-            <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="patient-dateNaissance"
-              type="date"
-              name="dateNaissance"
-              value={patientForm.dateNaissance.toISOString().split("T")[0]}
-              onChange={handlePatientChange}
-              required
-            />
-          </div>
-          <div className="flex justify-end">
-            <button
-              type="button"
-              className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded mr-2"
-              onClick={() => setShowPatientModal(false)}
-            >
-              Annuler
-            </button>
-            <button
-              type="button"
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-              onClick={handlePatientSubmit}
-            >
-              Enregistrer
-            </button>
-          </div>
-        </div>
-      </Modal>
+      {/* Intégration des composants Dialog avec callbacks */}
+      <PatientDialog onPatientCreated={handlePatientCreated} />
+      <PersonnelDialog onPersonnelCreated={handlePersonnelCreated} />
     </div>
   );
 };

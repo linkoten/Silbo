@@ -4,24 +4,35 @@ import {
   transfertFormSchema,
   patientFormSchema,
   serviceFormSchema,
-} from "./userFormSchema";
+  PatientFormValues,
+  ServiceFormValues,
+} from "../../components/userFormSchema";
 import { z } from "zod";
+
+// Import des composants Dialog de ShadcnUI
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Types pour le formulaire
 type TransfertFormData = z.infer<typeof transfertFormSchema>;
 type PatientFormData = z.infer<typeof patientFormSchema>;
 type ServiceFormData = z.infer<typeof serviceFormSchema>;
-
-interface Patient {
-  id: string;
-  nom: string;
-  prenom: string;
-}
-
-interface Service {
-  id: string;
-  nom: string;
-}
 
 const CreateTransfertPage: React.FC = () => {
   const [formData, setFormData] = useState<TransfertFormData>({
@@ -41,14 +52,19 @@ const CreateTransfertPage: React.FC = () => {
   const navigate = useNavigate();
 
   // États pour les listes de données
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
+  const [patients, setPatients] = useState<PatientFormValues[]>([]);
+  const [services, setServices] = useState<ServiceFormValues[]>([]);
 
-  // États pour les modales
-  const [showPatientModal, setShowPatientModal] = useState<boolean>(false);
-  const [showServiceModal, setShowServiceModal] = useState<boolean>(false);
+  // États pour les dialogs
+  const [showPatientDialog, setShowPatientDialog] = useState<boolean>(false);
+  const [showServiceDialog, setShowServiceDialog] = useState<boolean>(false);
 
-  // États pour les formulaires de modales
+  // Ref pour maintenir le focus
+  const activeFieldRef = React.useRef<
+    HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null
+  >(null);
+
+  // États pour les formulaires de dialogs
   const [patientForm, setPatientForm] = useState<PatientFormData>({
     nom: "",
     prenom: "",
@@ -179,30 +195,70 @@ const CreateTransfertPage: React.FC = () => {
     }
   };
 
-  // Gestionnaires pour les formulaires de modales
+  // Gestionnaires pour les formulaires de dialogs
   const handlePatientChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value, type } = e.target;
 
+    // Sauvegarder la référence au champ actif
+    activeFieldRef.current = e.target;
+
     if (type === "date") {
-      setPatientForm({
-        ...patientForm,
+      setPatientForm((prev) => ({
+        ...prev,
         [name]: value ? new Date(value) : null,
-      });
+      }));
     } else {
-      setPatientForm({
-        ...patientForm,
+      setPatientForm((prev) => ({
+        ...prev,
         [name]: value,
-      });
+      }));
     }
+
+    // Remettre le focus après le rendu
+    setTimeout(() => {
+      if (activeFieldRef.current) {
+        activeFieldRef.current.focus();
+      }
+    }, 0);
   };
 
   const handleServiceChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setServiceForm({ ...serviceForm, [name]: value });
+
+    // Sauvegarder la référence au champ actif
+    activeFieldRef.current = e.target;
+
+    // Convertir les valeurs numériques (capacité) en nombre
+    if (name === "capacite") {
+      const numericValue = value === "" ? 0 : parseInt(value, 10);
+      setServiceForm((prev) => ({ ...prev, [name]: numericValue }));
+    } else {
+      setServiceForm((prev) => ({ ...prev, [name]: value }));
+    }
+
+    // Remettre le focus après le rendu
+    setTimeout(() => {
+      if (activeFieldRef.current) {
+        activeFieldRef.current.focus();
+      }
+    }, 0);
+  };
+
+  // Gestionnaires pour les select de ShadcnUI
+  const handleSelectChange = (
+    value: string,
+    field: string,
+    formType: "patient" | "service"
+  ) => {
+    if (formType === "patient") {
+      setPatientForm((prev) => ({ ...prev, [field]: value }));
+    } else if (formType === "service") {
+      setServiceForm((prev) => ({ ...prev, [field]: value }));
+    }
   };
 
   const handlePatientSubmit = async () => {
@@ -218,7 +274,7 @@ const CreateTransfertPage: React.FC = () => {
 
       const newPatient = await response.json();
       setPatients([...patients, newPatient]);
-      setShowPatientModal(false);
+      setShowPatientDialog(false);
 
       // Sélectionner automatiquement le nouveau patient
       setFormData({ ...formData, patientId: newPatient.id });
@@ -229,10 +285,19 @@ const CreateTransfertPage: React.FC = () => {
 
   const handleServiceSubmit = async () => {
     try {
+      // Assurons-nous que capacite est bien un nombre avant l'envoi
+      const formDataToSend = {
+        ...serviceForm,
+        capacite:
+          typeof serviceForm.capacite === "string"
+            ? parseInt(serviceForm.capacite, 10)
+            : serviceForm.capacite,
+      };
+
       const response = await fetch("http://localhost:3000/services", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(serviceForm),
+        body: JSON.stringify(formDataToSend),
       });
 
       if (!response.ok)
@@ -240,37 +305,10 @@ const CreateTransfertPage: React.FC = () => {
 
       const newService = await response.json();
       setServices([...services, newService]);
-      setShowServiceModal(false);
+      setShowServiceDialog(false);
     } catch (error) {
       console.error("Erreur:", error);
     }
-  };
-
-  // Composant Modal réutilisable
-  const Modal: React.FC<{
-    show: boolean;
-    onClose: () => void;
-    title: string;
-    children: React.ReactNode;
-  }> = ({ show, onClose, title, children }) => {
-    if (!show) return null;
-
-    return (
-      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-        <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-1/2 shadow-lg rounded-md bg-white">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium">{title}</h3>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-500"
-            >
-              <span className="text-2xl">&times;</span>
-            </button>
-          </div>
-          {children}
-        </div>
-      </div>
-    );
   };
 
   return (
@@ -299,7 +337,7 @@ const CreateTransfertPage: React.FC = () => {
             <button
               type="button"
               className="text-blue-500 hover:text-blue-700 text-sm"
-              onClick={() => setShowPatientModal(true)}
+              onClick={() => setShowPatientDialog(true)}
             >
               + Ajouter un patient
             </button>
@@ -338,7 +376,7 @@ const CreateTransfertPage: React.FC = () => {
             <button
               type="button"
               className="text-blue-500 hover:text-blue-700 text-sm"
-              onClick={() => setShowServiceModal(true)}
+              onClick={() => setShowServiceDialog(true)}
             >
               + Ajouter un service
             </button>
@@ -523,159 +561,217 @@ const CreateTransfertPage: React.FC = () => {
 
         {/* Boutons */}
         <div className="flex items-center justify-between">
-          <button
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+          <Button
             type="submit"
+            className="bg-blue-500 hover:bg-blue-700"
             disabled={loading}
           >
             {loading ? "Enregistrement..." : "Enregistrer"}
-          </button>
-          <button
-            className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            className="bg-gray-500 hover:bg-gray-700 text-white"
             onClick={() => navigate("/transferts")}
           >
             Annuler
-          </button>
+          </Button>
         </div>
       </form>
 
-      {/* Modal pour créer un patient */}
-      <Modal
-        show={showPatientModal}
-        onClose={() => setShowPatientModal(false)}
-        title="Ajouter un patient"
-      >
-        <div className="p-4">
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="patient-nom"
-            >
-              Nom
-            </label>
-            <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="patient-nom"
-              type="text"
-              name="nom"
-              value={patientForm.nom}
-              onChange={handlePatientChange}
-              required
-            />
+      {/* Dialog pour créer un patient */}
+      <Dialog open={showPatientDialog} onOpenChange={setShowPatientDialog}>
+        <DialogContent className="sm:max-w-[525px]">
+          <DialogHeader>
+            <DialogTitle>Ajouter un patient</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="patient-nom" className="text-right">
+                Nom
+              </Label>
+              <Input
+                id="patient-nom"
+                name="nom"
+                value={patientForm.nom}
+                onChange={handlePatientChange}
+                className="col-span-3"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="patient-prenom" className="text-right">
+                Prénom
+              </Label>
+              <Input
+                id="patient-prenom"
+                name="prenom"
+                value={patientForm.prenom}
+                onChange={handlePatientChange}
+                className="col-span-3"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="patient-dateNaissance" className="text-right">
+                Date de naissance
+              </Label>
+              <Input
+                id="patient-dateNaissance"
+                type="date"
+                name="dateNaissance"
+                value={patientForm.dateNaissance.toISOString().split("T")[0]}
+                onChange={handlePatientChange}
+                className="col-span-3"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="patient-adresse" className="text-right">
+                Adresse
+              </Label>
+              <Input
+                id="patient-adresse"
+                name="adresse"
+                value={patientForm.adresse ?? ""}
+                onChange={handlePatientChange}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="patient-telephone" className="text-right">
+                Téléphone
+              </Label>
+              <Input
+                id="patient-telephone"
+                name="telephone"
+                value={patientForm.telephone ?? ""}
+                onChange={handlePatientChange}
+                className="col-span-3"
+              />
+            </div>
           </div>
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="patient-prenom"
-            >
-              Prénom
-            </label>
-            <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="patient-prenom"
-              type="text"
-              name="prenom"
-              value={patientForm.prenom}
-              onChange={handlePatientChange}
-              required
-            />
-          </div>
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="patient-dateNaissance"
-            >
-              Date de naissance
-            </label>
-            <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="patient-dateNaissance"
-              type="date"
-              name="dateNaissance"
-              value={patientForm.dateNaissance.toISOString().split("T")[0]}
-              onChange={handlePatientChange}
-              required
-            />
-          </div>
-          <div className="flex justify-end">
-            <button
+          <DialogFooter>
+            <Button
               type="button"
-              className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded mr-2"
-              onClick={() => setShowPatientModal(false)}
+              variant="outline"
+              onClick={() => setShowPatientDialog(false)}
             >
               Annuler
-            </button>
-            <button
-              type="button"
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-              onClick={handlePatientSubmit}
-            >
+            </Button>
+            <Button type="button" onClick={handlePatientSubmit}>
               Enregistrer
-            </button>
-          </div>
-        </div>
-      </Modal>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* Modal pour créer un service */}
-      <Modal
-        show={showServiceModal}
-        onClose={() => setShowServiceModal(false)}
-        title="Ajouter un service"
-      >
-        <div className="p-4">
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="service-nom"
-            >
-              Nom du service
-            </label>
-            <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="service-nom"
-              type="text"
-              name="nom"
-              value={serviceForm.nom}
-              onChange={handleServiceChange}
-              required
-            />
+      {/* Dialog pour créer un service */}
+      <Dialog open={showServiceDialog} onOpenChange={setShowServiceDialog}>
+        <DialogContent className="sm:max-w-[525px]">
+          <DialogHeader>
+            <DialogTitle>Ajouter un service</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="service-nom" className="text-right">
+                Nom du service
+              </Label>
+              <Input
+                id="service-nom"
+                name="nom"
+                value={serviceForm.nom}
+                onChange={handleServiceChange}
+                className="col-span-3"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="service-description" className="text-right">
+                Description
+              </Label>
+              <Textarea
+                id="service-description"
+                name="description"
+                value={serviceForm.description ?? ""}
+                onChange={handleServiceChange}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="service-etablissementId" className="text-right">
+                ID de l'établissement
+              </Label>
+              <Input
+                id="service-etablissementId"
+                name="etablissementId"
+                value={serviceForm.etablissementId}
+                onChange={handleServiceChange}
+                className="col-span-3"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="service-capacite" className="text-right">
+                Capacité
+              </Label>
+              <Input
+                id="service-capacite"
+                type="number"
+                name="capacite"
+                value={serviceForm.capacite}
+                onChange={handleServiceChange}
+                className="col-span-3"
+                min="0"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="service-etage" className="text-right">
+                Étage
+              </Label>
+              <Input
+                id="service-etage"
+                name="etage"
+                value={serviceForm.etage ?? ""}
+                onChange={handleServiceChange}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="service-statut" className="text-right">
+                Statut
+              </Label>
+              <Select
+                value={serviceForm.statut ?? "Actif"}
+                onValueChange={(value) =>
+                  handleSelectChange(value, "statut", "service")
+                }
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Sélectionnez un statut" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Actif">Actif</SelectItem>
+                  <SelectItem value="Inactif">Inactif</SelectItem>
+                  <SelectItem value="En maintenance">En maintenance</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="service-etablissementId"
-            >
-              ID de l'établissement
-            </label>
-            <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="service-etablissementId"
-              type="text"
-              name="etablissementId"
-              value={serviceForm.etablissementId}
-              onChange={handleServiceChange}
-              required
-            />
-          </div>
-          <div className="flex justify-end">
-            <button
+          <DialogFooter>
+            <Button
               type="button"
-              className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded mr-2"
-              onClick={() => setShowServiceModal(false)}
+              variant="outline"
+              onClick={() => setShowServiceDialog(false)}
             >
               Annuler
-            </button>
-            <button
-              type="button"
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-              onClick={handleServiceSubmit}
-            >
+            </Button>
+            <Button type="button" onClick={handleServiceSubmit}>
               Enregistrer
-            </button>
-          </div>
-        </div>
-      </Modal>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

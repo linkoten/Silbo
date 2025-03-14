@@ -15,11 +15,11 @@ import TransfertsPage from "./pages/TransfertsPage";
 // Pages de détail
 import PatientDetailPage from "./pages/PatientDetailPage";
 import LitDetailPage from "./pages/LitDetailPage";
-import ServiceDetailPage from "./pages/ServiceDetailPage";
-import EtablissementDetailPage from "./pages/EtablissementDetailPage";
-import MaterielDetailPage from "./pages/MaterielDetailPage";
-import PersonnelDetailPage from "./pages/PersonnelDetailPage";
-import PriseEnChargeDetailPage from "./pages/PriseEnChargeDetailPage";
+import ServiceDetailPage from "./pages/dynamic/ServiceDetailPage";
+import EtablissementDetailPage from "./pages/dynamic/EtablissementDetailPage";
+import MaterielDetailPage from "./pages/dynamic/MaterielDetailPage";
+import PersonnelDetailPage from "./pages/dynamic/PersonnelDetailPage";
+import PriseEnChargeDetailPage from "./pages/dynamic/PriseEnChargeDetailPage";
 import ReservationLitDetailPage from "./pages/ReservationLitDetailPage";
 import TransfertDetailPage from "./pages/TransfertDetailPage";
 

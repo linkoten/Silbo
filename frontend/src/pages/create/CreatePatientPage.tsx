@@ -1,6 +1,6 @@
 import React, { useState, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { patientFormSchema } from "./userFormSchema"; // Ou le chemin correct
+import { patientFormSchema } from "@/components/userFormSchema"; // Ou le chemin correct
 
 import { z } from "zod";
 

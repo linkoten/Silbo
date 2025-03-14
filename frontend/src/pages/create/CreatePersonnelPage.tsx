@@ -2,26 +2,21 @@ import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   personnelFormSchema,
-  etablissementFormSchema,
-  serviceFormSchema,
-} from "./userFormSchema";
-
+  EtablissementFormValues,
+  ServiceFormValues,
+} from "@/components/userFormSchema";
 import { z } from "zod";
 
-// Utilisation du type fourni par Zod pour le formulaire (sans l'ID qui est généré automatiquement)
+// Import des composants UI de ShadcnUI
+import { Button } from "@/components/ui/button";
+
+// Import du store Zustand et des composants Dialog
+import { useDialogStore } from "@/stores/dialog-store";
+import ServiceDialog from "@/components/dialogs/ServiceDialog";
+import EtablissementDialog from "@/components/dialogs/EtablissementDialog";
+
+// Utilisation du type fourni par Zod pour le formulaire
 type PersonnelFormData = z.infer<typeof personnelFormSchema>;
-type EtablissementFormData = z.infer<typeof etablissementFormSchema>;
-type ServiceFormData = z.infer<typeof serviceFormSchema>;
-
-interface Etablissement {
-  id: string;
-  nom: string;
-}
-
-interface Service {
-  id: string;
-  nom: string;
-}
 
 const CreatePersonnelPage: React.FC = () => {
   const [formData, setFormData] = useState<PersonnelFormData>({
@@ -38,71 +33,53 @@ const CreatePersonnelPage: React.FC = () => {
     statut: "Actif",
     etablissementId: null,
   });
+
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   // États pour les listes d'établissements et de services
-  const [etablissements, setEtablissements] = useState<Etablissement[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
-
-  // États pour les modales
-  const [showEtablissementModal, setShowEtablissementModal] =
+  const [etablissements, setEtablissements] = useState<
+    EtablissementFormValues[]
+  >([]);
+  const [services, setServices] = useState<ServiceFormValues[]>([]);
+  const [loadingEtablissements, setLoadingEtablissements] =
     useState<boolean>(false);
-  const [showServiceModal, setShowServiceModal] = useState<boolean>(false);
+  const [loadingServices, setLoadingServices] = useState<boolean>(false);
 
-  // États pour les formulaires de modales
-  const [etablissementForm, setEtablissementForm] =
-    useState<EtablissementFormData>({
-      nom: "",
-      adresse: "",
-      capacite: 0,
-      telephone: null,
-      email: null,
-      siteWeb: null,
-      codePostal: null,
-      ville: null,
-      pays: "France",
-      statut: "Actif",
-      typology: null,
-    });
-
-  const [serviceForm, setServiceForm] = useState<ServiceFormData>({
-    nom: "",
-    description: null,
-    etablissementId: "",
-    etage: null,
-    aile: null,
-    capacite: 0,
-    statut: "Actif",
-    specialite: null,
-    responsableId: null,
-  });
+  // Accès au store dialog avec actions pour ouvrir les dialogs
+  const { setShowServiceDialog, setShowEtablissementDialog } = useDialogStore();
 
   // Charger les établissements et services au chargement de la page
   useEffect(() => {
     const fetchEtablissements = async () => {
       try {
+        setLoadingEtablissements(true);
         const response = await fetch("http://localhost:3000/etablissements");
-        if (!response.ok)
-          throw new Error("Erreur lors du chargement des établissements");
-        const data = await response.json();
-        setEtablissements(data);
+        if (response.ok) {
+          const data = await response.json();
+          setEtablissements(data);
+        }
       } catch (error) {
-        console.error("Erreur:", error);
+        console.error("Erreur lors du chargement des établissements:", error);
+      } finally {
+        setLoadingEtablissements(false);
       }
     };
 
     const fetchServices = async () => {
       try {
+        setLoadingServices(true);
         const response = await fetch("http://localhost:3000/services");
-        if (!response.ok)
-          throw new Error("Erreur lors du chargement des services");
-        const data = await response.json();
-        setServices(data);
+        if (response.ok) {
+          const data = await response.json();
+          setServices(data);
+        }
       } catch (error) {
-        console.error("Erreur:", error);
+        console.error("Erreur lors du chargement des services:", error);
+      } finally {
+        setLoadingServices(false);
       }
     };
 
@@ -160,12 +137,6 @@ const CreatePersonnelPage: React.FC = () => {
 
     console.log(formData);
 
-    // Créer une copie des données pour l'envoi
-    const dataToSend = {
-      ...formData,
-      // S'assurer que la date est au format ISO 8601 (YYYY-MM-DD)
-    };
-
     setLoading(true);
     setSubmitError(null);
 
@@ -175,7 +146,7 @@ const CreatePersonnelPage: React.FC = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(dataToSend),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -194,90 +165,26 @@ const CreatePersonnelPage: React.FC = () => {
     }
   };
 
-  // Gestionnaires pour les formulaires de modales
-  const handleEtablissementChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setEtablissementForm({ ...etablissementForm, [name]: value });
+  // Callbacks pour les créations d'entités
+  const handleServiceCreated = (newService: ServiceFormValues): void => {
+    setServices((prevServices) => [...prevServices, newService]);
+    setFormData((prevData) => ({
+      ...prevData,
+      serviceId: newService.id as string,
+    }));
   };
 
-  const handleServiceChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    setServiceForm({ ...serviceForm, [name]: value });
-  };
-
-  const handleEtablissementSubmit = async () => {
-    try {
-      const response = await fetch("http://localhost:3000/etablissements", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(etablissementForm),
-      });
-
-      if (!response.ok)
-        throw new Error("Erreur lors de la création de l'établissement");
-
-      const newEtablissement = await response.json();
-      setEtablissements([...etablissements, newEtablissement]);
-      setShowEtablissementModal(false);
-
-      // Optionnel: sélectionner automatiquement le nouvel établissement
-      setFormData({ ...formData, etablissementId: newEtablissement.id });
-    } catch (error) {
-      console.error("Erreur:", error);
-    }
-  };
-
-  const handleServiceSubmit = async () => {
-    try {
-      const response = await fetch("http://localhost:3000/services", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(serviceForm),
-      });
-
-      if (!response.ok)
-        throw new Error("Erreur lors de la création du service");
-
-      const newService = await response.json();
-      setServices([...services, newService]);
-      setShowServiceModal(false);
-
-      // Optionnel: sélectionner automatiquement le nouveau service
-      setFormData({ ...formData, serviceId: newService.id });
-    } catch (error) {
-      console.error("Erreur:", error);
-    }
-  };
-
-  // Composant Modal réutilisable
-  const Modal: React.FC<{
-    show: boolean;
-    onClose: () => void;
-    title: string;
-    children: React.ReactNode;
-  }> = ({ show, onClose, title, children }) => {
-    if (!show) return null;
-
-    return (
-      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-        <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-1/2 shadow-lg rounded-md bg-white">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium">{title}</h3>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-500"
-            >
-              <span className="text-2xl">&times;</span>
-            </button>
-          </div>
-          {children}
-        </div>
-      </div>
-    );
+  const handleEtablissementCreated = (
+    newEtablissement: EtablissementFormValues
+  ): void => {
+    setEtablissements((prevEtablissements) => [
+      ...prevEtablissements,
+      newEtablissement,
+    ]);
+    setFormData((prevData) => ({
+      ...prevData,
+      etablissementId: newEtablissement.id as string,
+    }));
   };
 
   return (
@@ -499,7 +406,7 @@ const CreatePersonnelPage: React.FC = () => {
             <button
               type="button"
               className="text-blue-500 hover:text-blue-700 text-sm"
-              onClick={() => setShowEtablissementModal(true)}
+              onClick={() => setShowEtablissementDialog(true)}
             >
               + Ajouter un établissement
             </button>
@@ -520,6 +427,11 @@ const CreatePersonnelPage: React.FC = () => {
               </option>
             ))}
           </select>
+          {loadingEtablissements && (
+            <p className="text-sm text-gray-500 mt-1">
+              Chargement des établissements...
+            </p>
+          )}
           {errors.etablissementId && (
             <p className="text-red-500 text-xs italic">
               {errors.etablissementId}
@@ -539,7 +451,7 @@ const CreatePersonnelPage: React.FC = () => {
             <button
               type="button"
               className="text-blue-500 hover:text-blue-700 text-sm"
-              onClick={() => setShowServiceModal(true)}
+              onClick={() => setShowServiceDialog(true)}
             >
               + Ajouter un service
             </button>
@@ -560,6 +472,11 @@ const CreatePersonnelPage: React.FC = () => {
               </option>
             ))}
           </select>
+          {loadingServices && (
+            <p className="text-sm text-gray-500 mt-1">
+              Chargement des services...
+            </p>
+          )}
           {errors.serviceId && (
             <p className="text-red-500 text-xs italic">{errors.serviceId}</p>
           )}
@@ -621,163 +538,29 @@ const CreatePersonnelPage: React.FC = () => {
 
         {/* Boutons */}
         <div className="flex items-center justify-between">
-          <button
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+          <Button
             type="submit"
+            className="bg-blue-500 hover:bg-blue-700"
             disabled={loading}
           >
             {loading ? "Enregistrement..." : "Enregistrer"}
-          </button>
-          <button
-            className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            className="bg-gray-500 hover:bg-gray-700 text-white"
             onClick={() => navigate("/personnels")}
           >
             Annuler
-          </button>
+          </Button>
         </div>
       </form>
 
-      {/* Modal pour créer un établissement */}
-      <Modal
-        show={showEtablissementModal}
-        onClose={() => setShowEtablissementModal(false)}
-        title="Ajouter un établissement"
-      >
-        <div className="p-4">
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="etablissement-nom"
-            >
-              Nom de l'établissement
-            </label>
-            <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="etablissement-nom"
-              type="text"
-              name="nom"
-              value={etablissementForm.nom}
-              onChange={handleEtablissementChange}
-              required
-            />
-          </div>
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="etablissement-adresse"
-            >
-              Adresse
-            </label>
-            <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="etablissement-adresse"
-              type="text"
-              name="adresse"
-              value={etablissementForm.adresse}
-              onChange={handleEtablissementChange}
-              required
-            />
-          </div>
-          <div className="flex justify-end">
-            <button
-              type="button"
-              className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded mr-2"
-              onClick={() => setShowEtablissementModal(false)}
-            >
-              Annuler
-            </button>
-            <button
-              type="button"
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-              onClick={handleEtablissementSubmit}
-            >
-              Enregistrer
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Modal pour créer un service */}
-      <Modal
-        show={showServiceModal}
-        onClose={() => setShowServiceModal(false)}
-        title="Ajouter un service"
-      >
-        <div className="p-4">
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="service-nom"
-            >
-              Nom du service
-            </label>
-            <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="service-nom"
-              type="text"
-              name="nom"
-              value={serviceForm.nom}
-              onChange={handleServiceChange}
-              required
-            />
-          </div>
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="service-description"
-            >
-              Description
-            </label>
-            <textarea
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="service-description"
-              name="description"
-              value={serviceForm.description || ""}
-              onChange={handleServiceChange}
-            />
-          </div>
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="service-etablissementId"
-            >
-              Établissement
-            </label>
-            <select
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="service-etablissementId"
-              name="etablissementId"
-              value={serviceForm.etablissementId}
-              onChange={handleServiceChange}
-              required
-            >
-              <option value="">Sélectionnez un établissement</option>
-              {etablissements.map((etablissement) => (
-                <option key={etablissement.id} value={etablissement.id}>
-                  {etablissement.nom}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex justify-end">
-            <button
-              type="button"
-              className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded mr-2"
-              onClick={() => setShowServiceModal(false)}
-            >
-              Annuler
-            </button>
-            <button
-              type="button"
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-              onClick={handleServiceSubmit}
-            >
-              Enregistrer
-            </button>
-          </div>
-        </div>
-      </Modal>
+      {/* Intégration des composants Dialog avec callbacks */}
+      <ServiceDialog onServiceCreated={handleServiceCreated} />
+      <EtablissementDialog
+        onEtablissementCreated={handleEtablissementCreated}
+      />
     </div>
   );
 };

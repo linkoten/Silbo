@@ -1,6 +1,6 @@
 import React, { useState, ChangeEvent, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { etablissementFormSchema } from "./userFormSchema";
+import { etablissementFormSchema } from "@/components/userFormSchema";
 import { z } from "zod";
 
 // Type pour le formulaire de l'établissement

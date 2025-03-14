@@ -42,7 +42,7 @@ export const litFormSchema = z.object({
   etage: z.string().nullable(),
   patientId: z.string().nullable(),
 });
-export type Lit = z.infer<typeof litFormSchema>;
+export type LitFormValues = z.infer<typeof litFormSchema>;
 
 // Service schema (forward declaration due to circular references)
 export const serviceFormSchema = z.object({
@@ -58,7 +58,7 @@ export const serviceFormSchema = z.object({
   responsableId: z.string().nullable(),
 });
 
-export type Service = z.infer<typeof serviceFormSchema>;
+export type ServiceFormValues = z.infer<typeof serviceFormSchema>;
 
 // Personnel schema
 export const personnelFormSchema = z.object({
@@ -77,7 +77,7 @@ export const personnelFormSchema = z.object({
   etablissementId: z.string().nullable(),
 });
 
-export type Personnel = z.infer<typeof personnelFormSchema>;
+export type PersonnelFormValues = z.infer<typeof personnelFormSchema>;
 
 // Transfert schema
 export const transfertFormSchema = z.object({
@@ -96,7 +96,7 @@ export const transfertFormSchema = z.object({
   realiseePar: z.string().nullable(),
 });
 
-export type Transfert = z.infer<typeof transfertFormSchema>;
+export type TransfertFormValues = z.infer<typeof transfertFormSchema>;
 
 // Materiel schema
 export const materielFormSchema = z.object({
@@ -114,7 +114,7 @@ export const materielFormSchema = z.object({
   serviceId: z.string().nullable(),
 });
 
-export type Materiel = z.infer<typeof materielFormSchema>;
+export type MaterielFormValues = z.infer<typeof materielFormSchema>;
 
 // Etablissement schema
 export const etablissementFormSchema = z.object({
@@ -132,7 +132,7 @@ export const etablissementFormSchema = z.object({
   typology: z.string().nullable(),
 });
 
-export type Etablissement = z.infer<typeof etablissementFormSchema>;
+export type EtablissementFormValues = z.infer<typeof etablissementFormSchema>;
 
 // PriseEnCharge schema
 export const priseEnChargeFormSchema = z.object({
@@ -147,7 +147,7 @@ export const priseEnChargeFormSchema = z.object({
   notes: z.string().nullable(),
 });
 
-export type PriseEnCharge = z.infer<typeof priseEnChargeFormSchema>;
+export type PriseEnChargeFormValues = z.infer<typeof priseEnChargeFormSchema>;
 
 // ReservationLit schema
 export const reservationLitFormSchema = z.object({
@@ -159,7 +159,7 @@ export const reservationLitFormSchema = z.object({
   etablissementDestinationId: z.string().min(1).nullable(),
 });
 
-export type ReservationLit = z.infer<typeof reservationLitFormSchema>;
+export type ReservationLitFormValues = z.infer<typeof reservationLitFormSchema>;
 
 // Schéma pour Medicament
 export const MedicamentFormSchema = z.object({
@@ -174,7 +174,7 @@ export const MedicamentFormSchema = z.object({
   datePeremption: z.coerce.date().nullable(),
 });
 
-export type Medicament = z.infer<typeof MedicamentFormSchema>;
+export type MedicamentFormValues = z.infer<typeof MedicamentFormSchema>;
 
 // Schéma pour Document
 export const DocumentFormSchema = z.object({
@@ -190,4 +190,4 @@ export const DocumentFormSchema = z.object({
   serviceId: z.string().nullable(),
 });
 
-export type Document = z.infer<typeof DocumentFormSchema>;
+export type DocumentFormValues = z.infer<typeof DocumentFormSchema>;
