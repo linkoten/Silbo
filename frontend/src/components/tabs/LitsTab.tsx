@@ -1,13 +1,6 @@
+import { Lit } from "@/types/types";
 import React from "react";
 import { Link } from "react-router-dom";
-
-interface Lit {
-  id: string;
-  numeroLit: string;
-  serviceId: string;
-  statut?: string;
-  chambre?: string;
-}
 
 interface LitsTabProps {
   lits: Lit[];

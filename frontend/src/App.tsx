@@ -29,6 +29,8 @@ import PersonnelDetailPage from "./pages/dynamic/PersonnelDetailPage.js";
 import PriseEnChargeDetailPage from "./pages/dynamic/PriseEnChargeDetailPage.js";
 import ReservationLitDetailPage from "./pages/dynamic/ReservationLitDetailPage.js";
 import TransfertDetailPage from "./pages/dynamic/TransfertDetailPage.js";
+import EditPriseEnChargePage from "./pages/edit/EditPriseEnChargePage.js";
+import EditPersonnelPage from "./pages/edit/EditPersonnelPage.js";
 
 function App() {
   return (
@@ -85,6 +87,15 @@ function App() {
                 path="/etablissements/create"
                 element={<CreateEtablissementPage />}
               />
+              <Route
+                path="/prisesEnCharge/edit/:id"
+                element={<EditPriseEnChargePage />}
+              />
+              <Route
+                path="/personnels/edit/:id"
+                element={<EditPersonnelPage />}
+              />
+
               <Route path="/prisesEnCharge" element={<PrisesEnChargePage />} />
               <Route
                 path="/prisesEnCharge/create"

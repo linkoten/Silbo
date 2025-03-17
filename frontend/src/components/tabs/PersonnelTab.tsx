@@ -1,23 +1,10 @@
+import { Personnel, Service } from "@/types/types";
 import React from "react";
 import { Link } from "react-router-dom";
 
-interface Personnel {
-  id: string;
-  nom: string;
-  prenom: string;
-  profession: string;
-  etablissementId: string;
-  serviceId?: string;
-}
-
-interface Service {
-  id: string;
-  nom: string;
-}
-
 interface PersonnelTabProps {
   personnels: Personnel[];
-  services: Service[];
+  services?: Service[];
   etablissementId: string;
 }
 
@@ -67,7 +54,7 @@ const PersonnelTab: React.FC<PersonnelTabProps> = ({
                       to={`/services/${personnel.serviceId}`}
                       className="text-blue-600 hover:text-blue-900"
                     >
-                      {services.find((s) => s.id === personnel.serviceId)
+                      {services?.find((s) => s.id === personnel.serviceId)
                         ?.nom || "Service"}
                     </Link>
                   ) : (

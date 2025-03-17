@@ -1,17 +1,13 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   personnelFormSchema,
   EtablissementFormValues,
   ServiceFormValues,
 } from "@/components/userFormSchema";
 import { z } from "zod";
-
-// Import des composants UI de ShadcnUI
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-
-// Import du store Zustand et des composants Dialog
 import { useDialogStore } from "@/stores/dialog-store";
 import { usePersonnelStore } from "@/stores/personnel-store";
 import ServiceDialog from "@/components/dialogs/ServiceDialog";
@@ -20,7 +16,12 @@ import EtablissementDialog from "@/components/dialogs/EtablissementDialog";
 // Utilisation du type fourni par Zod pour le formulaire
 type PersonnelFormData = z.infer<typeof personnelFormSchema>;
 
-const CreatePersonnelPage: React.FC = () => {
+const EditPersonnelPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  // État initial du formulaire
   const [formData, setFormData] = useState<PersonnelFormData>({
     nom: "",
     prenom: "",
@@ -38,8 +39,6 @@ const CreatePersonnelPage: React.FC = () => {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const navigate = useNavigate();
-  const { toast } = useToast();
 
   // États pour les listes d'établissements et de services
   const [etablissements, setEtablissements] = useState<
@@ -50,13 +49,24 @@ const CreatePersonnelPage: React.FC = () => {
     useState<boolean>(false);
   const [loadingServices, setLoadingServices] = useState<boolean>(false);
 
-  // Accès au store dialog avec actions pour ouvrir les dialogs
+  // Utilisation des stores pour la gestion d'état
   const { setShowServiceDialog, setShowEtablissementDialog } = useDialogStore();
+  const {
+    personnelSelectionne,
+    isLoading,
+    error,
+    fetchPersonnelDetails,
+    updatePersonnel,
+  } = usePersonnelStore();
 
-  // Utilisation du store personnel pour le chargement et les erreurs
-  const { createPersonnel, isLoading } = usePersonnelStore();
+  // Charger les détails du personnel lors du montage du composant
+  useEffect(() => {
+    if (id) {
+      fetchPersonnelDetails(id);
+    }
+  }, [id, fetchPersonnelDetails]);
 
-  // Charger les établissements et services au chargement de la page
+  // Charger les établissements et services
   useEffect(() => {
     const fetchEtablissements = async () => {
       try {
@@ -102,6 +112,26 @@ const CreatePersonnelPage: React.FC = () => {
     fetchServices();
   }, [toast]);
 
+  // Mettre à jour le formulaire lorsque les détails du personnel sont chargés
+  useEffect(() => {
+    if (personnelSelectionne) {
+      setFormData({
+        nom: personnelSelectionne.nom,
+        prenom: personnelSelectionne.prenom,
+        dateNaissance: personnelSelectionne.dateNaissance || null,
+        email: personnelSelectionne.email || null,
+        telephone: personnelSelectionne.telephone || null,
+        profession: personnelSelectionne.profession,
+        specialite: personnelSelectionne.specialite || null,
+        matricule: personnelSelectionne.matricule || null,
+        serviceId: personnelSelectionne.serviceId || null,
+        dateEmbauche: personnelSelectionne.dateEmbauche || null,
+        statut: personnelSelectionne.statut || "Actif",
+        etablissementId: personnelSelectionne.etablissementId || null,
+      });
+    }
+  }, [personnelSelectionne]);
+
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ): void => {
@@ -146,29 +176,31 @@ const CreatePersonnelPage: React.FC = () => {
     e.preventDefault();
 
     // Valider le formulaire avant de soumettre
-    if (!validateForm()) {
+    if (!validateForm() || !id) {
       return;
     }
 
     setSubmitError(null);
 
     try {
-      // Utiliser le store pour créer le personnel au lieu d'un appel fetch direct
-      await createPersonnel(formData);
+      // Utiliser le store pour mettre à jour le personnel
+      await updatePersonnel(id, formData);
 
       toast({
         title: "Succès",
-        description: "Le personnel a été créé avec succès",
+        description:
+          "Les informations du personnel ont été mises à jour avec succès",
         variant: "success",
       });
 
-      // Redirection vers la liste des personnels après création réussie
-      navigate("/personnels");
+      // Redirection vers la page de détail du personnel après modification réussie
+      navigate(`/personnels/${id}`);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Erreur inconnue");
       toast({
         title: "Erreur",
-        description: "Impossible de créer le personnel",
+        description:
+          "Impossible de mettre à jour les informations du personnel",
         variant: "destructive",
       });
     }
@@ -196,9 +228,43 @@ const CreatePersonnelPage: React.FC = () => {
     }));
   };
 
+  // Afficher un écran de chargement pendant le chargement des données
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6 flex justify-center items-center h-screen">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-xl font-medium text-gray-700">
+            Chargement des informations du personnel...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Afficher un message d'erreur si le chargement a échoué
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
+          <p className="font-bold">Erreur</p>
+          <p>{error}</p>
+        </div>
+        <Button
+          onClick={() => navigate("/personnels")}
+          className="bg-blue-500 hover:bg-blue-600 text-white"
+        >
+          Retour à la liste des personnels
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">Ajouter un nouveau personnel</h1>
+      <h1 className="text-2xl font-bold mb-6">
+        Modifier les informations du personnel
+      </h1>
 
       {submitError && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 mb-4 rounded">
@@ -545,20 +611,22 @@ const CreatePersonnelPage: React.FC = () => {
           )}
         </div>
 
-        {/* Boutons */}
-        <div className="flex items-center justify-between">
+        {/* Boutons d'action */}
+        <div className="flex items-center justify-between mt-8">
           <Button
             type="submit"
-            className="bg-blue-500 hover:bg-blue-700"
+            className="bg-blue-500 hover:bg-blue-700 text-white"
             disabled={isLoading}
           >
-            {isLoading ? "Enregistrement..." : "Enregistrer"}
+            {isLoading ? "Enregistrement..." : "Enregistrer les modifications"}
           </Button>
           <Button
             type="button"
             variant="outline"
-            className="bg-gray-500 hover:bg-gray-700 text-white"
-            onClick={() => navigate("/personnels")}
+            className="bg-gray-300 hover:bg-gray-400 text-gray-800"
+            onClick={() =>
+              id ? navigate(`/personnels/${id}`) : navigate("/personnels")
+            }
           >
             Annuler
           </Button>
@@ -574,4 +642,4 @@ const CreatePersonnelPage: React.FC = () => {
   );
 };
 
-export default CreatePersonnelPage;
+export default EditPersonnelPage;

@@ -2,62 +2,9 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import TransfertsTab from "@/components/tabs/TransfertsTab";
 import PrisesEnChargeTab from "@/components/tabs/PrisesEnChargeTab";
-
-// Interfaces pour les données
-interface Patient {
-  id: string;
-  nom: string;
-  prenom: string;
-  dateNaissance: string;
-  adresse?: string;
-  telephone?: string;
-  email?: string;
-  numeroSecu?: string;
-  groupeSanguin?: string;
-  allergie?: string;
-  antecedents?: string;
-  dateAdmission: string;
-  dateSortie?: string;
-  statut: string;
-}
-
-interface Transfert {
-  id: string;
-  patientId: string;
-  date: string;
-  serviceDepartId: string;
-  serviceArriveeId: string;
-  motif: string | null;
-  statut: string;
-  autorisePar?: string;
-  realiseePar?: string;
-  serviceDepartNom?: string;
-  serviceArriveeNom?: string;
-}
-
-interface PriseEnCharge {
-  id: string;
-  patientId: string;
-  personnelId: string;
-  dateDebut: string;
-  dateFin?: string;
-  description?: string;
-  diagnostic?: string;
-  traitement?: string;
-  notes?: string;
-  personnel?: {
-    id: string;
-    nom: string;
-    prenom: string;
-    profession: string;
-  };
-}
-
-interface PatientDetails extends Patient {
-  transferts: Transfert[];
-  prisesEnCharge: PriseEnCharge[];
-  reservations?: any[]; // Optionnel, ajoutez si vous avez besoin d'afficher les réservations
-}
+import { usePatientStore } from "@/stores/patient-store";
+import { useTransfertStore } from "@/stores/transfert-store";
+import { usePriseEnChargeStore } from "@/stores/prise-en-charge-store";
 
 // Composant Card réutilisable
 const Card: React.FC<{
@@ -107,9 +54,28 @@ const Tab: React.FC<{
 const PatientDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [patient, setPatient] = useState<PatientDetails | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+
+  // Utiliser les stores Zustand pour les données
+  const {
+    patientSelectionne,
+    isLoading: isLoadingPatient,
+    error: patientError,
+    fetchPatientDetails,
+    deletePatient,
+  } = usePatientStore();
+  const {
+    transferts,
+    isLoading: isLoadingTransferts,
+    error: transfertsError,
+    fetchTransfertsPatient,
+  } = useTransfertStore();
+  const {
+    prisesEnCharge,
+    isLoading: isLoadingPEC,
+    error: pecError,
+    fetchPrisesEnChargePatient,
+  } = usePriseEnChargeStore();
+
   const [activeTab, setActiveTab] = useState<
     "info" | "transferts" | "prisesEnCharge"
   >("info");
@@ -124,121 +90,19 @@ const PatientDetailPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Charger les données du patient et ses relations
   useEffect(() => {
-    const fetchPatientDetails = async () => {
-      try {
-        setLoading(true);
-
-        // Récupération des données du patient
-        const patientResponse = await fetch(
-          `http://localhost:3000/patients/${id}`
-        );
-
-        if (!patientResponse.ok) {
-          throw new Error(`Patient non trouvé (${patientResponse.status})`);
-        }
-
-        const patientData: Patient = await patientResponse.json();
-
-        // Récupération des transferts liés à ce patient
-        const transfertsResponse = await fetch(
-          `http://localhost:3000/transferts?patientId=${id}`
-        );
-        let transferts: Transfert[] = transfertsResponse.ok
-          ? await transfertsResponse.json()
-          : [];
-
-        // Enrichir les transferts avec les noms des services
-        transferts = await Promise.all(
-          transferts.map(async (transfert) => {
-            // Récupération du service de départ
-            try {
-              const serviceDepartResponse = await fetch(
-                `http://localhost:3000/services/${transfert.serviceDepartId}`
-              );
-              if (serviceDepartResponse.ok) {
-                const serviceDepart = await serviceDepartResponse.json();
-                transfert.serviceDepartNom = serviceDepart.nom;
-              }
-            } catch (e) {
-              console.warn(
-                `Impossible de récupérer le service de départ ${transfert.serviceDepartId}`,
-                e
-              );
-            }
-
-            // Récupération du service d'arrivée
-            try {
-              const serviceArriveeResponse = await fetch(
-                `http://localhost:3000/services/${transfert.serviceArriveeId}`
-              );
-              if (serviceArriveeResponse.ok) {
-                const serviceArrivee = await serviceArriveeResponse.json();
-                transfert.serviceArriveeNom = serviceArrivee.nom;
-              }
-            } catch (e) {
-              console.warn(
-                `Impossible de récupérer le service d'arrivée ${transfert.serviceArriveeId}`,
-                e
-              );
-            }
-
-            return transfert;
-          })
-        );
-
-        // Récupération des prises en charge liées à ce patient
-        const prisesEnChargeResponse = await fetch(
-          `http://localhost:3000/prises-en-charge?patientId=${id}`
-        );
-        let prisesEnCharge: PriseEnCharge[] = prisesEnChargeResponse.ok
-          ? await prisesEnChargeResponse.json()
-          : [];
-
-        // Enrichir les prises en charge avec les infos des personnels
-        prisesEnCharge = await Promise.all(
-          prisesEnCharge.map(async (pec) => {
-            try {
-              const personnelResponse = await fetch(
-                `http://localhost:3000/personnels/${pec.personnelId}`
-              );
-              if (personnelResponse.ok) {
-                const personnel = await personnelResponse.json();
-                pec.personnel = {
-                  id: personnel.id,
-                  nom: personnel.nom,
-                  prenom: personnel.prenom,
-                  profession: personnel.profession,
-                };
-              }
-            } catch (e) {
-              console.warn(
-                `Impossible de récupérer le personnel ${pec.personnelId}`,
-                e
-              );
-            }
-            return pec;
-          })
-        );
-
-        // Assemblage des données
-        setPatient({
-          ...patientData,
-          transferts,
-          prisesEnCharge,
-        });
-      } catch (err) {
-        console.error("Erreur lors du chargement des données du patient:", err);
-        setError(err instanceof Error ? err.message : "Erreur inconnue");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (id) {
-      fetchPatientDetails();
+      fetchPatientDetails(id);
+      fetchTransfertsPatient(id);
+      fetchPrisesEnChargePatient(id);
     }
-  }, [id]);
+  }, [
+    id,
+    fetchPatientDetails,
+    fetchTransfertsPatient,
+    fetchPrisesEnChargePatient,
+  ]);
 
   const handleDelete = async () => {
     if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce patient ?")) {
@@ -246,15 +110,12 @@ const PatientDetailPage: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:3000/patients/${id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur lors de la suppression: ${response.status}`);
+      if (id) {
+        const success = await deletePatient(id);
+        if (success) {
+          navigate("/patients");
+        }
       }
-
-      navigate("/patients");
     } catch (err) {
       alert(
         err instanceof Error ? err.message : "Erreur lors de la suppression"
@@ -284,7 +145,12 @@ const PatientDetailPage: React.FC = () => {
     return age;
   };
 
-  if (loading) {
+  // État de chargement combiné de tous les stores
+  const isLoading = isLoadingPatient || isLoadingTransferts || isLoadingPEC;
+  // Erreur combinée de tous les stores
+  const error = patientError || transfertsError || pecError;
+
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div
@@ -333,7 +199,7 @@ const PatientDetailPage: React.FC = () => {
     );
   }
 
-  if (!patient) {
+  if (!patientSelectionne) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center text-gray-600">
@@ -342,6 +208,8 @@ const PatientDetailPage: React.FC = () => {
       </div>
     );
   }
+
+  const patient = patientSelectionne;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-10">
@@ -361,7 +229,7 @@ const PatientDetailPage: React.FC = () => {
                   </h1>
                   <div className="mt-1 flex flex-wrap gap-2">
                     <Badge color="bg-blue-200 text-blue-800">
-                      {calculateAge(patient.dateNaissance)} ans
+                      {calculateAge(patient.dateNaissance!)} ans
                     </Badge>
                     <Badge
                       color={
@@ -433,13 +301,13 @@ const PatientDetailPage: React.FC = () => {
                 active={activeTab === "transferts"}
                 onClick={() => setActiveTab("transferts")}
               >
-                Transferts ({patient.transferts.length})
+                Transferts ({transferts.length})
               </Tab>
               <Tab
                 active={activeTab === "prisesEnCharge"}
                 onClick={() => setActiveTab("prisesEnCharge")}
               >
-                Prises en charge ({patient.prisesEnCharge.length})
+                Prises en charge ({prisesEnCharge.length})
               </Tab>
             </div>
           </div>
@@ -464,8 +332,8 @@ const PatientDetailPage: React.FC = () => {
                         Date de naissance
                       </dt>
                       <dd className="mt-1 text-gray-900">
-                        {formatDate(patient.dateNaissance)} (
-                        {calculateAge(patient.dateNaissance)} ans)
+                        {formatDate(patient.dateNaissance!)} (
+                        {calculateAge(patient.dateNaissance!)} ans)
                       </dd>
                     </div>
                     <div>
@@ -529,7 +397,7 @@ const PatientDetailPage: React.FC = () => {
                         Date d'admission
                       </dt>
                       <dd className="mt-1 text-gray-900 font-medium">
-                        {formatDate(patient.dateAdmission)}
+                        {formatDate(patient.dateAdmission!)}
                       </dd>
                     </div>
                     <div>
@@ -567,17 +435,14 @@ const PatientDetailPage: React.FC = () => {
             )}
 
             {/* Onglet Transferts - Utilisation du composant TransfertsTab */}
-            {activeTab === "transferts" && patient && (
-              <TransfertsTab
-                transferts={patient.transferts}
-                patientId={patient.id}
-              />
+            {activeTab === "transferts" && (
+              <TransfertsTab transferts={transferts} patientId={patient.id} />
             )}
 
             {/* Onglet Prises en charge - Utilisation du composant PrisesEnChargeTab */}
-            {activeTab === "prisesEnCharge" && patient && (
+            {activeTab === "prisesEnCharge" && (
               <PrisesEnChargeTab
-                prisesEnCharge={patient.prisesEnCharge}
+                prisesEnCharge={prisesEnCharge}
                 patientId={patient.id}
               />
             )}

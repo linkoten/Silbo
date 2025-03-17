@@ -1,428 +1,291 @@
-import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
-import {
-  litFormSchema,
-  PatientFormValues,
-  ServiceFormValues,
-} from "@/components/userFormSchema";
-import { z } from "zod";
+import React, { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useToast } from "@/components/ui/use-toast";
+import { useLitStore } from "@/stores/lit-store";
 
-// Import des composants UI de ShadcnUI
-import { Button } from "@/components/ui/button";
-
-// Import du store Zustand et des composants Dialog
-import { useDialogStore } from "@/stores/dialog-store";
-import ServiceDialog from "@/components/dialogs/ServiceDialog";
-import PatientDialog from "@/components/dialogs/PatientDialog";
-
-// Utilisation du type fourni par Zod pour le formulaire
-type LitFormData = z.infer<typeof litFormSchema>;
+interface Service {
+  id: string;
+  nom: string;
+  etablissementId: string;
+  etablissement?: {
+    nom: string;
+  };
+}
 
 const CreateLitPage: React.FC = () => {
-  const [formData, setFormData] = useState<LitFormData>({
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { createLit } = useLitStore();
+
+  const [formData, setFormData] = useState({
     numeroLit: "",
-    type: null,
-    statut: "Disponible",
+    chambre: "",
+    etage: "",
+    type: "",
+    statut: "disponible",
     serviceId: "",
-    chambre: null,
-    etage: null,
-    patientId: null,
   });
 
-  const [loading, setLoading] = useState<boolean>(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const [services, setServices] = useState<Service[]>([]);
+  const [loadingServices, setLoadingServices] = useState<boolean>(true);
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  // État pour les listes de services et patients
-  const [services, setServices] = useState<ServiceFormValues[]>([]);
-  const [patients, setPatients] = useState<PatientFormValues[]>([]);
-  const [loadingServices, setLoadingServices] = useState<boolean>(false);
-  const [loadingPatients, setLoadingPatients] = useState<boolean>(false);
-
-  // Accès au store dialog avec actions pour ouvrir les dialogs
-  const { setShowServiceDialog, setShowPatientDialog } = useDialogStore();
-
-  // Chargement des services existants
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        setLoadingServices(true);
         const response = await fetch("http://localhost:3000/services");
-        if (response.ok) {
-          const data = await response.json();
-          setServices(data);
-        }
-      } catch (error) {
-        console.error("Erreur lors du chargement des services:", error);
+        if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
+
+        const servicesData = await response.json();
+
+        // Enrichir les services avec les informations d'établissement
+        const servicesEnriched = await Promise.all(
+          servicesData.map(async (service: Service) => {
+            try {
+              const etablissementResponse = await fetch(
+                `http://localhost:3000/etablissements/${service.etablissementId}`
+              );
+              if (etablissementResponse.ok) {
+                const etablissement = await etablissementResponse.json();
+                return { ...service, etablissement };
+              }
+              return service;
+            } catch (err) {
+              console.warn(
+                `Erreur lors de la récupération de l'établissement pour le service ${service.id}:`,
+                err
+              );
+              return service;
+            }
+          })
+        );
+
+        setServices(servicesEnriched);
+      } catch (err) {
+        console.error("Erreur lors de la récupération des services:", err);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les services",
+          variant: "destructive",
+        });
       } finally {
         setLoadingServices(false);
       }
     };
 
     fetchServices();
-  }, []);
-
-  // Chargement des patients existants
-  useEffect(() => {
-    const fetchPatients = async () => {
-      try {
-        setLoadingPatients(true);
-        const response = await fetch("http://localhost:3000/patients");
-        if (response.ok) {
-          const data = await response.json();
-          setPatients(data);
-        }
-      } catch (error) {
-        console.error("Erreur lors du chargement des patients:", error);
-      } finally {
-        setLoadingPatients(false);
-      }
-    };
-
-    fetchPatients();
-  }, []);
+  }, [toast]);
 
   const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ): void => {
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const validateForm = (): boolean => {
-    try {
-      // Utiliser le schéma Zod pour valider les données
-      litFormSchema.parse(formData);
-      setErrors({});
-      return true;
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        // Convertir les erreurs Zod en un format utilisable pour l'interface
-        const formattedErrors: Record<string, string> = {};
-        error.errors.forEach((err) => {
-          if (err.path.length > 0) {
-            formattedErrors[err.path[0].toString()] = err.message;
-          }
-        });
-        setErrors(formattedErrors);
-      }
+  const validateForm = () => {
+    if (!formData.numeroLit) {
+      setFormError("Le numéro de lit est requis");
       return false;
     }
+
+    if (!formData.serviceId) {
+      setFormError("Veuillez sélectionner un service");
+      return false;
+    }
+
+    setFormError(null);
+    return true;
   };
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Valider le formulaire avant de soumettre
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
-    setLoading(true);
-    setSubmitError(null);
+    setSubmitting(true);
 
     try {
-      const response = await fetch("http://localhost:3000/lits", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
+      // Utilisation du store Zustand au lieu d'un appel fetch direct
+      await createLit(formData);
+
+      toast({
+        title: "Succès",
+        description: "Le lit a été créé avec succès",
+        variant: "success",
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.details || "Erreur lors de la création du lit"
-        );
-      }
-
-      // Redirection vers la liste des lits après création réussie
       navigate("/lits");
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Erreur inconnue");
+      console.error("Erreur lors de la création du lit:", err);
+      setFormError(
+        err instanceof Error ? err.message : "Une erreur s'est produite"
+      );
+      toast({
+        title: "Erreur",
+        description: "Impossible de créer le lit",
+        variant: "destructive",
+      });
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
-  };
-
-  // Callbacks pour les créations de service et patient
-  const handleServiceCreated = (newService: ServiceFormValues): void => {
-    setServices((prevServices) => [...prevServices, newService]);
-    setFormData((prevData) => ({
-      ...prevData,
-      serviceId: newService.id as string,
-    }));
-  };
-
-  const handlePatientCreated = (newPatient: PatientFormValues): void => {
-    setPatients((prevPatients) => [...prevPatients, newPatient]);
-    setFormData((prevData) => ({
-      ...prevData,
-      patientId: newPatient.id as string,
-    }));
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-12">
-      <div className="container mx-auto px-4 max-w-2xl">
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 py-6 px-8">
-            <h1 className="text-2xl font-bold text-white">
-              Ajouter un nouveau lit
-            </h1>
+    <div className="container mx-auto p-6 max-w-2xl">
+      <h1 className="text-2xl font-bold mb-6">Créer un nouveau lit</h1>
+
+      {formError && (
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6">
+          <p>{formError}</p>
+        </div>
+      )}
+
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white shadow-md rounded-lg p-6"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Numéro de lit */}
+          <div className="col-span-1">
+            <label className="block text-gray-700 font-medium mb-2">
+              Numéro de lit *
+            </label>
+            <input
+              type="text"
+              name="numeroLit"
+              value={formData.numeroLit}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Ex: 101-A"
+              required
+            />
           </div>
 
-          {submitError && (
-            <div className="m-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-              {submitError}
-            </div>
-          )}
+          {/* Chambre */}
+          <div className="col-span-1">
+            <label className="block text-gray-700 font-medium mb-2">
+              Chambre
+            </label>
+            <input
+              type="text"
+              name="chambre"
+              value={formData.chambre}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Ex: 101"
+            />
+          </div>
 
-          <form onSubmit={handleSubmit} className="p-8">
-            <div className="space-y-6">
-              {/* Numero Lit */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Numéro du lit
-                </label>
-                <input
-                  type="text"
-                  name="numeroLit"
-                  value={formData.numeroLit}
-                  onChange={handleChange}
-                  className={`mt-1 block w-full px-3 py-2 border ${
-                    errors.numeroLit ? "border-red-500" : "border-gray-300"
-                  } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                  required
-                />
-                {errors.numeroLit && (
-                  <p className="mt-1 text-red-500 text-xs">
-                    {errors.numeroLit}
-                  </p>
-                )}
-              </div>
+          {/* Étage */}
+          <div className="col-span-1">
+            <label className="block text-gray-700 font-medium mb-2">
+              Étage
+            </label>
+            <input
+              type="text"
+              name="etage"
+              value={formData.etage}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Ex: 1er"
+            />
+          </div>
 
-              {/* Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Type de lit
-                </label>
-                <select
-                  name="type"
-                  value={formData.type ?? ""}
-                  onChange={handleChange}
-                  className={`mt-1 block w-full px-3 py-2 border ${
-                    errors.type ? "border-red-500" : "border-gray-300"
-                  } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                >
-                  <option value="">Sélectionnez un type</option>
-                  <option value="Standard">Standard</option>
-                  <option value="Médicalisé">Médicalisé</option>
-                  <option value="Électrique">Électrique</option>
-                  <option value="Pédiatrique">Pédiatrique</option>
-                </select>
-                {errors.type && (
-                  <p className="mt-1 text-red-500 text-xs">{errors.type}</p>
-                )}
-              </div>
+          {/* Type de lit */}
+          <div className="col-span-1">
+            <label className="block text-gray-700 font-medium mb-2">
+              Type de lit
+            </label>
+            <select
+              name="type"
+              value={formData.type}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Sélectionner un type</option>
+              <option value="Standard">Standard</option>
+              <option value="Médical">Médical</option>
+              <option value="Soins intensifs">Soins intensifs</option>
+              <option value="Pédiatrique">Pédiatrique</option>
+              <option value="Bariatrique">Bariatrique</option>
+            </select>
+          </div>
 
-              {/* Statut */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Statut
-                </label>
-                <select
-                  name="statut"
-                  value={formData.statut ?? ""}
-                  onChange={handleChange}
-                  className={`mt-1 block w-full px-3 py-2 border ${
-                    errors.statut ? "border-red-500" : "border-gray-300"
-                  } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                >
-                  <option value="">Sélectionnez un statut</option>
-                  <option value="Disponible">Disponible</option>
-                  <option value="Occupé">Occupé</option>
-                  <option value="En maintenance">En maintenance</option>
-                  <option value="Hors service">Hors service</option>
-                </select>
-                {errors.statut && (
-                  <p className="mt-1 text-red-500 text-xs">{errors.statut}</p>
-                )}
-              </div>
+          {/* Statut */}
+          <div className="col-span-1">
+            <label className="block text-gray-700 font-medium mb-2">
+              Statut
+            </label>
+            <select
+              name="statut"
+              value={formData.statut}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="disponible">Disponible</option>
+              <option value="occupé">Occupé</option>
+              <option value="maintenance">En maintenance</option>
+              <option value="réservé">Réservé</option>
+            </select>
+          </div>
 
-              {/* Chambre */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Chambre
-                </label>
-                <input
-                  type="text"
-                  name="chambre"
-                  value={formData.chambre ?? ""}
-                  onChange={handleChange}
-                  className={`mt-1 block w-full px-3 py-2 border ${
-                    errors.chambre ? "border-red-500" : "border-gray-300"
-                  } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                />
-                {errors.chambre && (
-                  <p className="mt-1 text-red-500 text-xs">{errors.chambre}</p>
-                )}
+          {/* Service */}
+          <div className="col-span-2">
+            <label className="block text-gray-700 font-medium mb-2">
+              Service *
+            </label>
+            {loadingServices ? (
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-gray-500">
+                  Chargement des services...
+                </span>
               </div>
-
-              {/* Étage */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Étage
-                </label>
-                <input
-                  type="text"
-                  name="etage"
-                  value={formData.etage ?? ""}
-                  onChange={handleChange}
-                  className={`mt-1 block w-full px-3 py-2 border ${
-                    errors.etage ? "border-red-500" : "border-gray-300"
-                  } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                />
-                {errors.etage && (
-                  <p className="mt-1 text-red-500 text-xs">{errors.etage}</p>
-                )}
-              </div>
-
-              {/* Service ID - Avec select et bouton pour ajouter */}
-              <div>
-                <div className="flex justify-between items-center">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Service
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowServiceDialog(true)}
-                    className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
-                  >
-                    <svg
-                      className="w-4 h-4 mr-1"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                      />
-                    </svg>
-                    Ajouter un service
-                  </button>
-                </div>
-                <select
-                  name="serviceId"
-                  value={formData.serviceId}
-                  onChange={handleChange}
-                  className={`mt-1 block w-full px-3 py-2 border ${
-                    errors.serviceId ? "border-red-500" : "border-gray-300"
-                  } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                  required
-                >
-                  <option value="">Sélectionnez un service</option>
-                  {services.map((service) => (
-                    <option key={service.id} value={service.id}>
-                      {service.nom}
-                    </option>
-                  ))}
-                </select>
-                {loadingServices && (
-                  <p className="text-sm text-gray-500 mt-1">
-                    Chargement des services...
-                  </p>
-                )}
-                {errors.serviceId && (
-                  <p className="mt-1 text-red-500 text-xs">
-                    {errors.serviceId}
-                  </p>
-                )}
-              </div>
-
-              {/* Patient ID - Avec select et bouton pour ajouter */}
-              <div>
-                <div className="flex justify-between items-center">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Patient (optionnel)
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowPatientDialog(true)}
-                    className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
-                  >
-                    <svg
-                      className="w-4 h-4 mr-1"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                      />
-                    </svg>
-                    Ajouter un patient
-                  </button>
-                </div>
-                <select
-                  name="patientId"
-                  value={formData.patientId ?? ""}
-                  onChange={handleChange}
-                  className={`mt-1 block w-full px-3 py-2 border ${
-                    errors.patientId ? "border-red-500" : "border-gray-300"
-                  } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                >
-                  <option value="">Aucun patient assigné</option>
-                  {patients.map((patient) => (
-                    <option key={patient.id} value={patient.id}>
-                      {patient.nom} {patient.prenom}
-                    </option>
-                  ))}
-                </select>
-                {loadingPatients && (
-                  <p className="text-sm text-gray-500 mt-1">
-                    Chargement des patients...
-                  </p>
-                )}
-                {errors.patientId && (
-                  <p className="mt-1 text-red-500 text-xs">
-                    {errors.patientId}
-                  </p>
-                )}
-              </div>
-
-              {/* Boutons d'action */}
-              <div className="flex justify-end space-x-3 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate("/lits")}
-                >
-                  Annuler
-                </Button>
-                <Button type="submit" disabled={loading}>
-                  {loading ? "Enregistrement..." : "Créer le lit"}
-                </Button>
-              </div>
-            </div>
-          </form>
+            ) : (
+              <select
+                name="serviceId"
+                value={formData.serviceId}
+                onChange={handleChange}
+                className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              >
+                <option value="">Sélectionner un service</option>
+                {services.map((service) => (
+                  <option key={service.id} value={service.id}>
+                    {service.nom}{" "}
+                    {service.etablissement && `(${service.etablissement.nom})`}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Intégration des composants Dialog avec callbacks */}
-      <ServiceDialog onServiceCreated={handleServiceCreated} />
-      <PatientDialog onPatientCreated={handlePatientCreated} />
+        <div className="flex justify-between mt-8">
+          <Link
+            to="/lits"
+            className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded"
+          >
+            Annuler
+          </Link>
+          <button
+            type="submit"
+            className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded flex items-center disabled:bg-blue-300"
+            disabled={submitting || loadingServices}
+          >
+            {submitting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                Création en cours...
+              </>
+            ) : (
+              "Créer le lit"
+            )}
+          </button>
+        </div>
+      </form>
     </div>
   );
 };

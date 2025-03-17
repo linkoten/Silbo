@@ -9,8 +9,10 @@ import { z } from "zod";
 // Import des composants UI de ShadcnUI
 import { Button } from "@/components/ui/button";
 
-// Import du store Zustand et du composant ServiceDialog
+// Import des stores Zustand et du composant ServiceDialog
 import { useDialogStore } from "@/stores/dialog-store";
+import { useMaterielStore } from "@/stores/materiel-store";
+import { useServiceStore } from "@/stores/service-store";
 import ServiceDialog from "@/components/dialogs/ServiceDialog";
 
 // Types pour le formulaire
@@ -31,37 +33,26 @@ const CreateMaterielPage: React.FC = () => {
     serviceId: null,
   });
 
-  const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // État pour la liste des services
-  const [services, setServices] = useState<ServiceFormValues[]>([]);
-
-  // Accès au store dialog avec actions pour ouvrir les dialogs
+  // Utilisation des stores Zustand
   const { setShowServiceDialog } = useDialogStore();
+  const { createMateriel, isLoading } = useMaterielStore();
+  const { services, fetchServices } = useServiceStore();
 
   // Charger la liste des services au chargement de la page
   useEffect(() => {
-    const fetchServices = async () => {
-      try {
-        const response = await fetch("http://localhost:3000/services");
-        if (!response.ok)
-          throw new Error("Erreur lors du chargement des services");
-        const data = await response.json();
-        setServices(data);
-      } catch (error) {
-        console.error("Erreur:", error);
-      }
-    };
-
     fetchServices();
-  }, []);
+  }, [fetchServices]);
 
   // Callback pour ajouter un nouveau service à la liste
   const handleServiceCreated = (newService: ServiceFormValues) => {
-    setServices((prevServices) => [...prevServices, newService]);
+    // Rafraîchir les services après création
+    fetchServices();
+
+    // Mettre à jour le formulaire avec le nouveau service
     setFormData((prevData) => ({
       ...prevData,
       serviceId: newService.id as string,
@@ -119,31 +110,16 @@ const CreateMaterielPage: React.FC = () => {
       return;
     }
 
-    setLoading(true);
     setSubmitError(null);
 
     try {
-      const response = await fetch("http://localhost:3000/materiels", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.details || "Erreur lors de la création du matériel"
-        );
-      }
+      // Utilisation du store Zustand au lieu d'un appel fetch direct
+      await createMateriel(formData);
 
       // Redirection vers la liste des matériels après création réussie
       navigate("/materiels");
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Erreur inconnue");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -451,9 +427,9 @@ const CreateMaterielPage: React.FC = () => {
           <Button
             type="submit"
             className="bg-blue-500 hover:bg-blue-700"
-            disabled={loading}
+            disabled={isLoading}
           >
-            {loading ? "Enregistrement..." : "Enregistrer"}
+            {isLoading ? "Enregistrement..." : "Enregistrer"}
           </Button>
           <Button
             type="button"

@@ -1,23 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-
-// Interfaces pour les données
-interface Materiel {
-  id: string;
-  nom: string;
-  quantite: number;
-  description: string;
-  serviceId: string;
-}
-
-interface Service {
-  id: string;
-  nom: string;
-}
-
-interface MaterielDetails extends Materiel {
-  service?: Service;
-}
+import { useMaterielStore } from "@/stores/materiel-store";
 
 // Composant Card réutilisable
 const Card: React.FC<{
@@ -79,12 +62,18 @@ const QuantityIndicator: React.FC<{ quantity: number }> = ({ quantity }) => {
 const MaterielDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [materiel, setMateriel] = useState<MaterielDetails | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+
+  // Utiliser le store Zustand au lieu des états locaux et des appels fetch
+  const {
+    materielSelectionne,
+    isLoading,
+    error,
+    fetchMaterielDetails,
+    deleteMateriel,
+  } = useMaterielStore();
 
   // Animation effet "pulse" pour simuler un chargement
-  const [pulse, setPulse] = useState(false);
+  const [pulse, setPulse] = React.useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -93,57 +82,12 @@ const MaterielDetailPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Charger les détails du matériel via le store
   useEffect(() => {
-    const fetchMaterielDetails = async () => {
-      try {
-        setLoading(true);
-
-        // Récupération des données du matériel
-        const materielResponse = await fetch(
-          `http://localhost:3000/materiels/${id}`
-        );
-
-        if (!materielResponse.ok) {
-          throw new Error(`Matériel non trouvé (${materielResponse.status})`);
-        }
-
-        const materielData: Materiel = await materielResponse.json();
-
-        // Récupération du service associé
-        let serviceData: Service | undefined = undefined;
-        try {
-          if (materielData.serviceId) {
-            const serviceResponse = await fetch(
-              `http://localhost:3000/services/${materielData.serviceId}`
-            );
-            if (serviceResponse.ok) {
-              serviceData = await serviceResponse.json();
-            }
-          }
-        } catch (err) {
-          console.warn("Impossible de récupérer les détails du service:", err);
-        }
-
-        // Assemblage des données
-        setMateriel({
-          ...materielData,
-          service: serviceData,
-        });
-      } catch (err) {
-        console.error(
-          "Erreur lors du chargement des données du matériel:",
-          err
-        );
-        setError(err instanceof Error ? err.message : "Erreur inconnue");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (id) {
-      fetchMaterielDetails();
+      fetchMaterielDetails(id);
     }
-  }, [id]);
+  }, [id, fetchMaterielDetails]);
 
   const handleDelete = async () => {
     if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce matériel ?")) {
@@ -151,15 +95,12 @@ const MaterielDetailPage: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:3000/materiels/${id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur lors de la suppression: ${response.status}`);
+      if (id) {
+        const success = await deleteMateriel(id);
+        if (success) {
+          navigate("/materiels");
+        }
       }
-
-      navigate("/materiels");
     } catch (err) {
       alert(
         err instanceof Error ? err.message : "Erreur lors de la suppression"
@@ -167,7 +108,7 @@ const MaterielDetailPage: React.FC = () => {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div
@@ -216,7 +157,7 @@ const MaterielDetailPage: React.FC = () => {
     );
   }
 
-  if (!materiel) {
+  if (!materielSelectionne) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center text-gray-600">
@@ -225,6 +166,8 @@ const MaterielDetailPage: React.FC = () => {
       </div>
     );
   }
+
+  const materiel = materielSelectionne;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-10">
@@ -453,7 +396,13 @@ const MaterielDetailPage: React.FC = () => {
 
                   <div className="mt-auto pt-6 border-t border-gray-200">
                     <div className="flex justify-center">
-                      <button className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors mr-3">
+                      <button
+                        onClick={() => {
+                          // On pourrait ajouter ici une action pour ajuster le stock via le store
+                          // Par exemple: updateStock(materiel.id, newQuantity)
+                        }}
+                        className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors mr-3"
+                      >
                         Ajuster le stock
                       </button>
                       <button className="bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-6 rounded-lg transition-colors">

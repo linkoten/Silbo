@@ -3,41 +3,8 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { formatDate } from "../../utils/formatUtils";
 import TransfertDetailsTab from "@/components/tabs/TransfertDetailsTab";
 import TransfertPatientTab from "@/components/tabs/TransfertPatientTab";
-
-// Interfaces pour les données
-interface Transfert {
-  id: string;
-  patientId: string;
-  dateTransfert: string;
-  serviceDepartId: string;
-  serviceArriveeId: string;
-  etablissementDepartId: string;
-  etablissementArriveeId: string;
-}
-
-interface Patient {
-  id: string;
-  nom: string;
-  prenom: string;
-}
-
-interface Service {
-  id: string;
-  nom: string;
-}
-
-interface Etablissement {
-  id: string;
-  nom: string;
-}
-
-interface TransfertDetails extends Transfert {
-  patient?: Patient;
-  serviceDepart?: Service;
-  serviceArrivee?: Service;
-  etablissementDepart?: Etablissement;
-  etablissementArrivee?: Etablissement;
-}
+import { useTransfertStore } from "@/stores/transfert-store";
+import { useToast } from "@/components/ui/use-toast";
 
 // Composant Badge
 const Badge: React.FC<{ children: React.ReactNode; color: string }> = ({
@@ -73,10 +40,18 @@ const Tab: React.FC<{
 const TransfertDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [transfert, setTransfert] = useState<TransfertDetails | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"details" | "patient">("details");
+  const { toast } = useToast();
+
+  // Utiliser le store transfert
+  const {
+    transfertSelectionne: transfert,
+    isLoading,
+    error,
+    fetchTransfertDetails,
+    deleteTransfert,
+    validateTransfert,
+  } = useTransfertStore();
 
   // Animation effet "pulse" pour simuler un chargement
   const [pulse, setPulse] = useState(false);
@@ -89,123 +64,10 @@ const TransfertDetailPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const fetchTransfertDetails = async () => {
-      try {
-        setLoading(true);
-
-        // Récupération des données du transfert
-        const transfertResponse = await fetch(
-          `http://localhost:3000/transferts/${id}`
-        );
-
-        if (!transfertResponse.ok) {
-          throw new Error(`Transfert non trouvé (${transfertResponse.status})`);
-        }
-
-        const transfertData: Transfert = await transfertResponse.json();
-
-        // Récupération des données du patient
-        let patientData: Patient | undefined = undefined;
-        try {
-          const patientResponse = await fetch(
-            `http://localhost:3000/patients/${transfertData.patientId}`
-          );
-          if (patientResponse.ok) {
-            patientData = await patientResponse.json();
-          }
-        } catch (err) {
-          console.warn("Impossible de récupérer les détails du patient:", err);
-        }
-
-        // Récupération des données du service de départ
-        let serviceDepartData: Service | undefined = undefined;
-        try {
-          const serviceDepartResponse = await fetch(
-            `http://localhost:3000/services/${transfertData.serviceDepartId}`
-          );
-          if (serviceDepartResponse.ok) {
-            serviceDepartData = await serviceDepartResponse.json();
-          }
-        } catch (err) {
-          console.warn(
-            "Impossible de récupérer les détails du service de départ:",
-            err
-          );
-        }
-
-        // Récupération des données du service d'arrivée
-        let serviceArriveeData: Service | undefined = undefined;
-        try {
-          const serviceArriveeResponse = await fetch(
-            `http://localhost:3000/services/${transfertData.serviceArriveeId}`
-          );
-          if (serviceArriveeResponse.ok) {
-            serviceArriveeData = await serviceArriveeResponse.json();
-          }
-        } catch (err) {
-          console.warn(
-            "Impossible de récupérer les détails du service d'arrivée:",
-            err
-          );
-        }
-
-        // Récupération des données de l'établissement de départ
-        let etablissementDepartData: Etablissement | undefined = undefined;
-        try {
-          const etablissementDepartResponse = await fetch(
-            `http://localhost:3000/etablissements/${transfertData.etablissementDepartId}`
-          );
-          if (etablissementDepartResponse.ok) {
-            etablissementDepartData = await etablissementDepartResponse.json();
-          }
-        } catch (err) {
-          console.warn(
-            "Impossible de récupérer les détails de l'établissement de départ:",
-            err
-          );
-        }
-
-        // Récupération des données de l'établissement d'arrivée
-        let etablissementArriveeData: Etablissement | undefined = undefined;
-        try {
-          const etablissementArriveeResponse = await fetch(
-            `http://localhost:3000/etablissements/${transfertData.etablissementArriveeId}`
-          );
-          if (etablissementArriveeResponse.ok) {
-            etablissementArriveeData =
-              await etablissementArriveeResponse.json();
-          }
-        } catch (err) {
-          console.warn(
-            "Impossible de récupérer les détails de l'établissement d'arrivée:",
-            err
-          );
-        }
-
-        // Assemblage des données
-        setTransfert({
-          ...transfertData,
-          patient: patientData,
-          serviceDepart: serviceDepartData,
-          serviceArrivee: serviceArriveeData,
-          etablissementDepart: etablissementDepartData,
-          etablissementArrivee: etablissementArriveeData,
-        });
-      } catch (err) {
-        console.error(
-          "Erreur lors du chargement des données du transfert:",
-          err
-        );
-        setError(err instanceof Error ? err.message : "Erreur inconnue");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (id) {
-      fetchTransfertDetails();
+      fetchTransfertDetails(id);
     }
-  }, [id]);
+  }, [id, fetchTransfertDetails]);
 
   const handleDelete = async () => {
     if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce transfert ?")) {
@@ -213,23 +75,59 @@ const TransfertDetailPage: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:3000/transferts/${id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur lors de la suppression: ${response.status}`);
+      if (id) {
+        const success = await deleteTransfert(id);
+        if (success) {
+          toast({
+            title: "Succès",
+            description: "Le transfert a été supprimé avec succès",
+            variant: "success",
+          });
+          navigate("/transferts");
+        }
       }
-
-      navigate("/transferts");
     } catch (err) {
-      alert(
-        err instanceof Error ? err.message : "Erreur lors de la suppression"
-      );
+      toast({
+        title: "Erreur",
+        description:
+          err instanceof Error ? err.message : "Erreur lors de la suppression",
+        variant: "destructive",
+      });
     }
   };
 
-  if (loading) {
+  const handleValidate = async () => {
+    if (!id || !transfert) return;
+
+    if (transfert.statut === "Validé") {
+      toast({
+        title: "Information",
+        description: "Ce transfert est déjà validé",
+        variant: "default",
+      });
+      return;
+    }
+
+    try {
+      const success = await validateTransfert(id);
+      if (success) {
+        toast({
+          title: "Succès",
+          description: "Le transfert a été validé avec succès",
+          variant: "success",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Erreur",
+        description:
+          err instanceof Error ? err.message : "Erreur lors de la validation",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div
@@ -288,14 +186,24 @@ const TransfertDetailPage: React.FC = () => {
     );
   }
 
-  // Déterminer si le transfert est dans le passé ou le futur
-  const transfertDate = new Date(transfert.dateTransfert);
+  // Détermination du statut du transfert
+  const transfertDate = new Date(transfert.date);
   const now = new Date();
-  const isTransfertPast = transfertDate < now;
-  const transfertStatus = isTransfertPast ? "Effectué" : "Planifié";
-  const transfertStatusColor = isTransfertPast
-    ? "bg-green-200 text-green-800"
-    : "bg-blue-200 text-blue-800";
+
+  // Le statut explicite du transfert a priorité, sinon on le détermine par la date
+  const transfertStatus =
+    transfert.statut || (transfertDate > now ? "Planifié" : "Effectué");
+
+  const transfertStatusColor =
+    transfertStatus === "Validé"
+      ? "bg-green-200 text-green-800"
+      : transfertStatus === "Planifié"
+      ? "bg-blue-200 text-blue-800"
+      : transfertStatus === "En cours"
+      ? "bg-yellow-200 text-yellow-800"
+      : transfertStatus === "Annulé"
+      ? "bg-red-200 text-red-800"
+      : "bg-gray-200 text-gray-800";
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-10">
@@ -331,7 +239,7 @@ const TransfertDetailPage: React.FC = () => {
                       {transfertStatus}
                     </Badge>
                     <Badge color="bg-purple-200 text-purple-800">
-                      {formatDate(transfert.dateTransfert)}
+                      {formatDate(transfert.date)}
                     </Badge>
                   </div>
                 </div>
@@ -356,6 +264,27 @@ const TransfertDetailPage: React.FC = () => {
                   </svg>
                   Modifier
                 </Link>
+                {transfert.statut !== "Validé" && (
+                  <button
+                    onClick={handleValidate}
+                    className="bg-white hover:bg-gray-100 text-green-600 px-4 py-2 rounded-lg shadow-md transition-all transform hover:-translate-y-1 flex items-center"
+                  >
+                    <svg
+                      className="w-4 h-4 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                    Valider
+                  </button>
+                )}
                 <button
                   onClick={handleDelete}
                   className="bg-white hover:bg-gray-100 text-red-600 px-4 py-2 rounded-lg shadow-md transition-all transform hover:-translate-y-1 flex items-center"

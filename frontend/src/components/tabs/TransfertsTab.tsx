@@ -1,153 +1,156 @@
 import React from "react";
 import { Link } from "react-router-dom";
-
-interface Transfert {
-  id: string;
-  patientId: string;
-  date: string;
-  serviceDepartId: string;
-  serviceArriveeId: string;
-  motif: string | null;
-  statut: string;
-  autorisePar?: string;
-  realiseePar?: string;
-  serviceDepartNom?: string;
-  serviceArriveeNom?: string;
-}
+import { Transfert } from "@/types/types";
+import { useTransfertStore } from "@/stores/transfert-store";
 
 interface TransfertsTabProps {
-  transferts: Transfert[];
   patientId: string;
+  transferts: Transfert[];
 }
 
 const TransfertsTab: React.FC<TransfertsTabProps> = ({
-  transferts,
   patientId,
+  transferts,
 }) => {
-  const formatDate = (dateString: string) => {
+  const { deleteTransfert, validateTransfert } = useTransfertStore();
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "Non définie";
     const date = new Date(dateString);
     return new Intl.DateTimeFormat("fr-FR").format(date);
   };
 
-  if (transferts.length > 0) {
-    return (
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Date
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Service départ
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Service arrivée
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Statut
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {transferts.map((transfert) => (
-              <tr key={transfert.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {formatDate(transfert.date)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {transfert.serviceDepartNom || (
-                    <span className="text-gray-500">
-                      ID: {transfert.serviceDepartId}
-                    </span>
-                  )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {transfert.serviceArriveeNom || (
-                    <span className="text-gray-500">
-                      ID: {transfert.serviceArriveeId}
-                    </span>
-                  )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span
-                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                    ${
-                      transfert.statut === "Terminé"
-                        ? "bg-green-100 text-green-800"
-                        : transfert.statut === "En cours"
-                        ? "bg-blue-100 text-blue-800"
-                        : transfert.statut === "Planifié"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-red-100 text-red-800"
-                    }`}
-                  >
-                    {transfert.statut}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <Link
-                    to={`/transferts/${transfert.id}`}
-                    className="text-blue-600 hover:text-blue-900 mr-4"
-                  >
-                    Détails
-                  </Link>
-                  <Link
-                    to={`/transferts/edit/${transfert.id}`}
-                    className="text-amber-600 hover:text-amber-900"
-                  >
-                    Modifier
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+  const handleValidate = async (id: string) => {
+    if (window.confirm("Voulez-vous valider ce transfert ?")) {
+      try {
+        await validateTransfert(id);
+      } catch (error) {
+        alert("Erreur lors de la validation du transfert");
+      }
+    }
+  };
 
-        <div className="mt-6 flex justify-center">
-          <Link
-            to={`/transferts/create?patientId=${patientId}`}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
-          >
-            Créer un nouveau transfert
-          </Link>
-        </div>
-      </div>
-    );
-  } else {
-    return (
-      <div className="text-center py-10 text-gray-500">
-        <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-          <svg
-            className="w-8 h-8 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            ></path>
-          </svg>
-        </div>
-        <p className="text-xl font-medium mb-2">Aucun transfert</p>
-        <p className="mb-6">
-          Ce patient n'a pas encore de transferts enregistrés.
-        </p>
+  const handleDelete = async (id: string) => {
+    if (window.confirm("Êtes-vous sûr de vouloir supprimer ce transfert ?")) {
+      try {
+        await deleteTransfert(id);
+      } catch (error) {
+        alert("Erreur lors de la suppression du transfert");
+      }
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-bold">Transferts du patient</h3>
         <Link
           to={`/transferts/create?patientId=${patientId}`}
-          className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+          className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1 rounded"
         >
-          Créer un transfert
+          Nouveau transfert
         </Link>
       </div>
-    );
-  }
+
+      {transferts.length === 0 ? (
+        <div className="text-center py-8 bg-gray-50 rounded-lg">
+          <p className="text-gray-500">Aucun transfert pour ce patient</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Date
+                </th>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Service départ
+                </th>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Service arrivée
+                </th>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Statut
+                </th>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {transferts.map((transfert) => (
+                <tr key={transfert.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {formatDate(transfert.date)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {transfert.serviceDepartId ||
+                      `Service #${transfert.serviceDepartId}`}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {transfert.serviceArriveeId ||
+                      `Service #${transfert.serviceArriveeId}`}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                      ${
+                        transfert.statut === "Validé"
+                          ? "bg-green-100 text-green-800"
+                          : transfert.statut === "En attente"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {transfert.statut}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <Link
+                      to={`/transferts/${transfert.id}`}
+                      className="text-blue-600 hover:text-blue-900 mr-3"
+                    >
+                      Détails
+                    </Link>
+                    {transfert.statut !== "Validé" && (
+                      <button
+                        onClick={() => handleValidate(transfert.id)}
+                        className="text-green-600 hover:text-green-900 mr-3"
+                      >
+                        Valider
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDelete(transfert.id)}
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      Supprimer
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default TransfertsTab;

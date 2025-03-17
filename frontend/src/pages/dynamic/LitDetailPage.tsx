@@ -1,40 +1,8 @@
-import ReservationsTab from "@/components/tabs/ReservationsTab";
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-
-// Interfaces pour les données
-interface Lit {
-  id: string;
-  numeroLit: string;
-  serviceId: string;
-  type?: string;
-  statut?: string;
-  chambre?: string;
-}
-
-interface Service {
-  id: string;
-  nom: string;
-}
-
-interface ReservationLit {
-  id: string;
-  patientId: string;
-  litId: string;
-  dateDepart: string;
-  dateArrivee: string;
-  etablissementDestinationId: string;
-  patient?: {
-    id: string;
-    nom: string;
-    prenom: string;
-  };
-}
-
-interface LitDetails extends Lit {
-  service?: Service;
-  reservations: ReservationLit[];
-}
+import ReservationsTab from "@/components/tabs/ReservationsTab";
+import { useLitStore } from "@/stores/lit-store";
+import { LitWithRelations } from "@/types/types";
 
 // Composant Card réutilisable
 const Card: React.FC<{
@@ -84,9 +52,9 @@ const Tab: React.FC<{
 const LitDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [lit, setLit] = useState<LitDetails | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  // Utilisation du store Zustand
+  const { litSelectionne, isLoading, error, fetchLitDetails, deleteLit } =
+    useLitStore();
   const [activeTab, setActiveTab] = useState<"info" | "reservations">("info");
 
   // Animation effet "pulse" pour simuler un chargement
@@ -100,108 +68,25 @@ const LitDetailPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const fetchLitDetails = async () => {
-      try {
-        setLoading(true);
-
-        // Récupération des données du lit
-        const litResponse = await fetch(`http://localhost:3000/lits/${id}`);
-
-        if (!litResponse.ok) {
-          throw new Error(`Lit non trouvé (${litResponse.status})`);
-        }
-
-        const litData: Lit = await litResponse.json();
-
-        // Récupération des données du service associé
-        let serviceData: Service | undefined = undefined;
-        try {
-          const serviceResponse = await fetch(
-            `http://localhost:3000/services/${litData.serviceId}`
-          );
-          if (serviceResponse.ok) {
-            serviceData = await serviceResponse.json();
-          }
-        } catch (err) {
-          // Gérer silencieusement les erreurs de relation
-          console.warn("Impossible de récupérer les détails du service:", err);
-        }
-
-        // Récupération des réservations associées au lit
-        const reservationsResponse = await fetch(
-          `http://localhost:3000/reservations-lits?litId=${id}`
-        );
-        let reservations: ReservationLit[] = reservationsResponse.ok
-          ? await reservationsResponse.json()
-          : [];
-
-        // Si nous avons des réservations, récupérons les informations des patients
-        if (reservations.length > 0) {
-          const patientIds = [...new Set(reservations.map((r) => r.patientId))];
-          const patientsData = await Promise.all(
-            patientIds.map((patientId) =>
-              fetch(`http://localhost:3000/patients/${patientId}`).then((res) =>
-                res.ok ? res.json() : null
-              )
-            )
-          );
-
-          // Association des patients aux réservations
-          reservations = reservations.map((reservation) => {
-            const patient = patientsData.find(
-              (p) => p && p.id === reservation.patientId
-            );
-            return {
-              ...reservation,
-              patient: patient
-                ? { id: patient.id, nom: patient.nom, prenom: patient.prenom }
-                : undefined,
-            };
-          });
-        }
-
-        // Assemblage des données
-        setLit({
-          ...litData,
-          service: serviceData,
-          reservations,
-        });
-      } catch (err) {
-        console.error("Erreur lors du chargement des données du lit:", err);
-        setError(err instanceof Error ? err.message : "Erreur inconnue");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (id) {
-      fetchLitDetails();
+      fetchLitDetails(id);
     }
-  }, [id]);
+  }, [id, fetchLitDetails]);
 
   const handleDelete = async () => {
     if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce lit ?")) {
       return;
     }
 
-    try {
-      const response = await fetch(`http://localhost:3000/lits/${id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur lors de la suppression: ${response.status}`);
+    if (id) {
+      const success = await deleteLit(id);
+      if (success) {
+        navigate("/lits");
       }
-
-      navigate("/lits");
-    } catch (err) {
-      alert(
-        err instanceof Error ? err.message : "Erreur lors de la suppression"
-      );
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div
@@ -250,7 +135,7 @@ const LitDetailPage: React.FC = () => {
     );
   }
 
-  if (!lit) {
+  if (!litSelectionne) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center text-gray-600">
@@ -269,15 +154,15 @@ const LitDetailPage: React.FC = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between">
               <div className="flex items-center mb-4 md:mb-0">
                 <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-2xl font-bold text-blue-700 border-4 border-white shadow-lg mr-6">
-                  {lit.numeroLit}
+                  {litSelectionne.numeroLit}
                 </div>
                 <div>
                   <h1 className="text-3xl font-bold text-white">
-                    Lit n°{lit.numeroLit}
+                    Lit n°{litSelectionne.numeroLit}
                   </h1>
-                  {lit.service && (
+                  {litSelectionne.service && (
                     <Badge color="bg-green-200 text-green-800">
-                      Service: {lit.service.nom}
+                      Service: {litSelectionne.service.nom}
                     </Badge>
                   )}
                 </div>
@@ -338,7 +223,7 @@ const LitDetailPage: React.FC = () => {
                 active={activeTab === "reservations"}
                 onClick={() => setActiveTab("reservations")}
               >
-                Réservations ({lit.reservations.length})
+                Réservations ({litSelectionne.reservations?.length || 0})
               </Tab>
             </div>
           </div>
@@ -355,7 +240,7 @@ const LitDetailPage: React.FC = () => {
                         Numéro de lit
                       </dt>
                       <dd className="mt-1 text-lg text-gray-900 font-medium">
-                        {lit.numeroLit}
+                        {litSelectionne.numeroLit}
                       </dd>
                     </div>
                     <div>
@@ -363,16 +248,16 @@ const LitDetailPage: React.FC = () => {
                         Service
                       </dt>
                       <dd className="mt-1 text-gray-900">
-                        {lit.service ? (
+                        {litSelectionne.service ? (
                           <Link
-                            to={`/services/${lit.serviceId}`}
+                            to={`/services/${litSelectionne.serviceId}`}
                             className="text-blue-600 hover:underline"
                           >
-                            {lit.service.nom}
+                            {litSelectionne.service.nom}
                           </Link>
                         ) : (
                           <span className="text-gray-500">
-                            ID: {lit.serviceId}
+                            ID: {litSelectionne.serviceId}
                           </span>
                         )}
                       </dd>
@@ -382,7 +267,7 @@ const LitDetailPage: React.FC = () => {
                         Identifiant du lit
                       </dt>
                       <dd className="mt-1 text-gray-400 text-sm font-mono">
-                        {lit.id}
+                        {litSelectionne.id}
                       </dd>
                     </div>
                   </dl>
@@ -390,7 +275,7 @@ const LitDetailPage: React.FC = () => {
 
                 <Card title="Disponibilité" className="h-full">
                   <div className="flex flex-col items-center justify-center h-full">
-                    {lit.reservations.length === 0 ? (
+                    {!litSelectionne.reservations?.length ? (
                       <div>
                         <span className="inline-block p-3 bg-green-100 text-green-700 rounded-full mb-4">
                           <svg
@@ -441,7 +326,8 @@ const LitDetailPage: React.FC = () => {
                           Lit réservé
                         </p>
                         <p className="text-gray-500 mt-2">
-                          {lit.reservations.length} réservation(s) active(s)
+                          {litSelectionne.reservations.length} réservation(s)
+                          active(s)
                         </p>
                       </div>
                     )}
@@ -451,8 +337,11 @@ const LitDetailPage: React.FC = () => {
             )}
 
             {/* Onglet Réservations - Utilisation du composant ReservationsTab */}
-            {activeTab === "reservations" && lit && (
-              <ReservationsTab reservations={lit.reservations} litId={lit.id} />
+            {activeTab === "reservations" && litSelectionne && (
+              <ReservationsTab
+                reservations={litSelectionne.reservations || []}
+                litId={litSelectionne.id}
+              />
             )}
           </div>
         </div>

@@ -2,46 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import ReservationDetailTab from "@/components/tabs/ReservationDetailTab";
 import ReservationRelatedTab from "@/components/tabs/ReservationRelatedTab";
-
-// Interfaces pour les données
-interface ReservationLit {
-  id: string;
-  litId: string;
-  patientId: string;
-  dateDepart: string;
-  dateArrivee: string;
-  etablissementDestinationId: string;
-}
-
-interface Patient {
-  id: string;
-  nom: string;
-  prenom: string;
-}
-
-interface Lit {
-  id: string;
-  numeroLit: string;
-  serviceId: string;
-}
-
-interface Service {
-  id: string;
-  nom: string;
-}
-
-interface Etablissement {
-  id: string;
-  nom: string;
-  adresse: string;
-}
-
-interface ReservationDetails extends ReservationLit {
-  patient?: Patient;
-  lit?: Lit;
-  service?: Service;
-  etablissementDestination?: Etablissement;
-}
+import { useReservationLitStore } from "@/stores/reservation-lit-store";
+import { useToast } from "@/components/ui/use-toast";
 
 // Composant Badge
 const Badge: React.FC<{ children: React.ReactNode; color: string }> = ({
@@ -85,12 +47,17 @@ const getDurationDays = (start: string, end: string): number => {
 const ReservationLitDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [reservation, setReservation] = useState<ReservationDetails | null>(
-    null
-  );
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"details" | "related">("details");
+  const { toast } = useToast();
+
+  // Utiliser le store reservation-lit
+  const {
+    reservationLitSelectionnee: reservation,
+    isLoading,
+    error,
+    fetchReservationLitDetails,
+    deleteReservationLit,
+  } = useReservationLitStore();
 
   // Animation effet "pulse" pour simuler un chargement
   const [pulse, setPulse] = useState(false);
@@ -103,103 +70,10 @@ const ReservationLitDetailPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const fetchReservationDetails = async () => {
-      try {
-        setLoading(true);
-
-        // Récupération des données de la réservation
-        const reservationResponse = await fetch(
-          `http://localhost:3000/reservations-lits/${id}`
-        );
-
-        if (!reservationResponse.ok) {
-          throw new Error(
-            `Réservation non trouvée (${reservationResponse.status})`
-          );
-        }
-
-        const reservationData: ReservationLit =
-          await reservationResponse.json();
-
-        // Récupération des données du patient associé
-        let patientData: Patient | undefined = undefined;
-        try {
-          const patientResponse = await fetch(
-            `http://localhost:3000/patients/${reservationData.patientId}`
-          );
-          if (patientResponse.ok) {
-            patientData = await patientResponse.json();
-          }
-        } catch (err) {
-          console.warn("Impossible de récupérer les détails du patient:", err);
-        }
-
-        // Récupération des données du lit associé
-        let litData: Lit | undefined = undefined;
-        let serviceData: Service | undefined = undefined;
-
-        try {
-          const litResponse = await fetch(
-            `http://localhost:3000/lits/${reservationData.litId}`
-          );
-          if (litResponse.ok) {
-            litData = await litResponse.json();
-
-            // Si on a récupéré le lit, on récupère aussi son service
-            if (litData!.serviceId) {
-              const serviceResponse = await fetch(
-                `http://localhost:3000/services/${litData!.serviceId}`
-              );
-              if (serviceResponse.ok) {
-                serviceData = await serviceResponse.json();
-              }
-            }
-          }
-        } catch (err) {
-          console.warn("Impossible de récupérer les détails du lit:", err);
-        }
-
-        // Récupération des données de l'établissement associé
-        let etablissementData: Etablissement | undefined = undefined;
-        try {
-          if (reservationData.etablissementDestinationId) {
-            const etablissementResponse = await fetch(
-              `http://localhost:3000/etablissements/${reservationData.etablissementDestinationId}`
-            );
-            if (etablissementResponse.ok) {
-              etablissementData = await etablissementResponse.json();
-            }
-          }
-        } catch (err) {
-          console.warn(
-            "Impossible de récupérer les détails de l'établissement:",
-            err
-          );
-        }
-
-        // Assemblage des données
-        setReservation({
-          ...reservationData,
-          patient: patientData,
-          lit: litData,
-          service: serviceData,
-          etablissementDestination: etablissementData,
-        });
-      } catch (err) {
-        console.error(
-          "Erreur lors du chargement des données de la réservation:",
-          err
-        );
-        setError(err instanceof Error ? err.message : "Erreur inconnue");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (id) {
-      fetchReservationDetails();
+      fetchReservationLitDetails(id);
     }
-  }, [id]);
+  }, [id, fetchReservationLitDetails]);
 
   const handleDelete = async () => {
     if (
@@ -209,26 +83,28 @@ const ReservationLitDetailPage: React.FC = () => {
     }
 
     try {
-      const response = await fetch(
-        `http://localhost:3000/reservations-lits/${id}`,
-        {
-          method: "DELETE",
+      if (id) {
+        const success = await deleteReservationLit(id);
+        if (success) {
+          toast({
+            title: "Succès",
+            description: "La réservation a été supprimée avec succès",
+            variant: "success",
+          });
+          navigate("/reservationsLit");
         }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Erreur lors de la suppression: ${response.status}`);
       }
-
-      navigate("/reservations-lits");
     } catch (err) {
-      alert(
-        err instanceof Error ? err.message : "Erreur lors de la suppression"
-      );
+      toast({
+        title: "Erreur",
+        description:
+          err instanceof Error ? err.message : "Erreur lors de la suppression",
+        variant: "destructive",
+      });
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div
@@ -267,7 +143,7 @@ const ReservationLitDetailPage: React.FC = () => {
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Erreur</h2>
           <p className="text-gray-600">{error}</p>
           <Link
-            to="/reservations-lits"
+            to="/reservationsLit"
             className="mt-6 inline-block bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
           >
             Retour à la liste des réservations
@@ -354,7 +230,7 @@ const ReservationLitDetailPage: React.FC = () => {
               </div>
               <div className="flex space-x-3">
                 <Link
-                  to={`/reservations-lits/edit/${id}`}
+                  to={`/reservationsLit/edit/${id}`}
                   className="bg-white hover:bg-gray-100 text-blue-600 px-4 py-2 rounded-lg shadow-md transition-all transform hover:-translate-y-1 flex items-center"
                 >
                   <svg
@@ -436,7 +312,7 @@ const ReservationLitDetailPage: React.FC = () => {
         {/* Pied de page avec boutons d'action */}
         <div className="flex justify-between">
           <Link
-            to="/reservations-lits"
+            to="/reservationsLit"
             className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-2 px-6 rounded-lg transition-colors flex items-center"
           >
             <svg

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   priseEnChargeFormSchema,
   PatientFormValues,
@@ -7,7 +7,7 @@ import {
 } from "@/components/userFormSchema";
 import { z } from "zod";
 
-// Import des composants UI de ShadcnUI
+// Import des composants UI
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -20,14 +20,15 @@ import PersonnelDialog from "@/components/dialogs/PersonnelDialog";
 // Utilisation du type fourni par Zod pour le formulaire
 type PriseEnChargeFormData = z.infer<typeof priseEnChargeFormSchema>;
 
-const CreatePriseEnCharge: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const patientIdParam = searchParams.get("patientId");
-  const personnelIdParam = searchParams.get("personnelId");
+const EditPriseEnChargePage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
+  // État initial du formulaire
   const [formData, setFormData] = useState<PriseEnChargeFormData>({
-    patientId: patientIdParam || "",
-    personnelId: personnelIdParam || "",
+    patientId: "",
+    personnelId: "",
     dateDebut: new Date(),
     dateFin: null,
     description: "",
@@ -38,55 +39,88 @@ const CreatePriseEnCharge: React.FC = () => {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const navigate = useNavigate();
-  const { toast } = useToast();
 
   // États pour les listes de patients et personnels
   const [patients, setPatients] = useState<PatientFormValues[]>([]);
   const [personnels, setPersonnels] = useState<PersonnelFormValues[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loadingRelations, setLoadingRelations] = useState<boolean>(false);
 
-  // Accès au store dialog avec actions pour ouvrir les dialogs
+  // Utilisation des stores pour la gestion d'état
   const { setShowPatientDialog, setShowPersonnelDialog } = useDialogStore();
+  const {
+    priseEnChargeSelectionnee,
+    isLoading,
+    error,
+    fetchPriseEnChargeDetails,
+    updatePriseEnCharge,
+  } = usePriseEnChargeStore();
 
-  // Utilisation du store prise en charge pour la création
-  const { createPriseEnCharge, isLoading } = usePriseEnChargeStore();
-
-  // Charger les patients et personnels au chargement de la page
+  // Charger les détails de la prise en charge lors du montage du composant
   useEffect(() => {
-    const fetchPersonnels = async () => {
+    if (id) {
+      fetchPriseEnChargeDetails(id);
+    }
+  }, [id, fetchPriseEnChargeDetails]);
+
+  // Charger les patients et personnels
+  useEffect(() => {
+    const fetchRelations = async () => {
+      setLoadingRelations(true);
       try {
-        const response = await fetch("http://localhost:3000/personnels");
-        if (!response.ok)
-          throw new Error("Erreur lors du chargement des personnels");
-        const data = await response.json();
-        setPersonnels(data);
+        // Charger les patients
+        const patientsResponse = await fetch("http://localhost:3000/patients");
+        if (patientsResponse.ok) {
+          const patientsData = await patientsResponse.json();
+          setPatients(patientsData);
+        }
+
+        // Charger les personnels
+        const personnelsResponse = await fetch(
+          "http://localhost:3000/personnels"
+        );
+        if (personnelsResponse.ok) {
+          const personnelsData = await personnelsResponse.json();
+          setPersonnels(personnelsData);
+        }
       } catch (error) {
-        console.error("Erreur:", error);
+        console.error("Erreur lors du chargement des relations:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les données associées",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingRelations(false);
       }
     };
 
-    const fetchPatients = async () => {
-      try {
-        const response = await fetch("http://localhost:3000/patients");
-        if (!response.ok)
-          throw new Error("Erreur lors du chargement des patients");
-        const data = await response.json();
-        setPatients(data);
-      } catch (error) {
-        console.error("Erreur:", error);
-      }
-    };
+    fetchRelations();
+  }, [toast]);
 
-    fetchPersonnels();
-    fetchPatients();
-  }, []);
+  // Mettre à jour le formulaire lorsque les détails de la prise en charge sont chargés
+  useEffect(() => {
+    if (priseEnChargeSelectionnee) {
+      setFormData({
+        patientId: priseEnChargeSelectionnee.patientId,
+        personnelId: priseEnChargeSelectionnee.personnelId,
+        dateDebut: new Date(priseEnChargeSelectionnee.dateDebut),
+        dateFin: priseEnChargeSelectionnee.dateFin
+          ? new Date(priseEnChargeSelectionnee.dateFin)
+          : null,
+        description: priseEnChargeSelectionnee.description || "",
+        diagnostic: priseEnChargeSelectionnee.diagnostic || "",
+        traitement: priseEnChargeSelectionnee.traitement || "",
+        notes: priseEnChargeSelectionnee.notes || "",
+      });
+    }
+  }, [priseEnChargeSelectionnee]);
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ): void => {
     const { name, value, type } = e.target;
 
+    // Traitement spécial pour les champs de date
     if (type === "date") {
       setFormData({
         ...formData,
@@ -102,11 +136,13 @@ const CreatePriseEnCharge: React.FC = () => {
 
   const validateForm = (): boolean => {
     try {
+      // Utiliser le schéma Zod pour valider les données
       priseEnChargeFormSchema.parse(formData);
       setErrors({});
       return true;
     } catch (error) {
       if (error instanceof z.ZodError) {
+        // Convertir les erreurs Zod en un format utilisable pour l'interface
         const formattedErrors: Record<string, string> = {};
         error.errors.forEach((err) => {
           if (err.path.length > 0) {
@@ -122,11 +158,11 @@ const CreatePriseEnCharge: React.FC = () => {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
 
-    if (!validateForm()) {
+    // Valider le formulaire avant de soumettre
+    if (!validateForm() || !id) {
       return;
     }
 
-    setLoading(true);
     setSubmitError(null);
 
     try {
@@ -137,25 +173,24 @@ const CreatePriseEnCharge: React.FC = () => {
         dateFin: formData.dateFin ? formData.dateFin.toISOString() : null,
       };
 
-      await createPriseEnCharge(formDataForSubmit);
+      // Utiliser le store pour mettre à jour la prise en charge
+      await updatePriseEnCharge(id, formDataForSubmit);
 
       toast({
         title: "Succès",
-        description: "La prise en charge a été créée avec succès",
+        description: "La prise en charge a été mise à jour avec succès",
         variant: "success",
       });
 
-      // Redirection vers la liste des prises en charge après création réussie
-      navigate("/prisesEnCharge");
+      // Redirection vers la page de détail de la prise en charge après modification réussie
+      navigate(`/prises-en-charge/${id}`);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Erreur inconnue");
       toast({
         title: "Erreur",
-        description: "Impossible de créer la prise en charge",
+        description: "Impossible de mettre à jour la prise en charge",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -176,11 +211,41 @@ const CreatePriseEnCharge: React.FC = () => {
     }));
   };
 
+  // Afficher un écran de chargement pendant le chargement des données
+  if (isLoading || loadingRelations) {
+    return (
+      <div className="container mx-auto p-6 flex justify-center items-center h-screen">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-xl font-medium text-gray-700">
+            Chargement des informations de la prise en charge...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Afficher un message d'erreur si le chargement a échoué
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
+          <p className="font-bold">Erreur</p>
+          <p>{error}</p>
+        </div>
+        <Button
+          onClick={() => navigate("/prises-en-charge")}
+          className="bg-blue-500 hover:bg-blue-600 text-white"
+        >
+          Retour à la liste des prises en charge
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">
-        Créer une nouvelle prise en charge
-      </h1>
+      <h1 className="text-2xl font-bold mb-6">Modifier la prise en charge</h1>
 
       {submitError && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 mb-4 rounded">
@@ -413,22 +478,24 @@ const CreatePriseEnCharge: React.FC = () => {
           )}
         </div>
 
-        {/* Boutons */}
-        <div className="flex items-center justify-between">
+        {/* Boutons d'action */}
+        <div className="flex items-center justify-between mt-8">
           <Button
             type="submit"
             className="bg-blue-500 hover:bg-blue-700 text-white"
-            disabled={loading || isLoading}
+            disabled={isLoading}
           >
-            {loading || isLoading
-              ? "Création en cours..."
-              : "Créer la prise en charge"}
+            {isLoading ? "Enregistrement..." : "Enregistrer les modifications"}
           </Button>
           <Button
             type="button"
             variant="outline"
-            className="bg-gray-500 hover:bg-gray-700 text-white"
-            onClick={() => navigate("/prisesEnCharge")}
+            className="bg-gray-300 hover:bg-gray-400 text-gray-800"
+            onClick={() =>
+              id
+                ? navigate(`/prises-en-charge/${id}`)
+                : navigate("/prises-en-charge")
+            }
           >
             Annuler
           </Button>
@@ -442,4 +509,4 @@ const CreatePriseEnCharge: React.FC = () => {
   );
 };
 
-export default CreatePriseEnCharge;
+export default EditPriseEnChargePage;

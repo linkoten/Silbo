@@ -1,7 +1,7 @@
 import React, { useState, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { patientFormSchema } from "@/components/userFormSchema"; // Ou le chemin correct
-
+import { usePatientStore } from "@/stores/patient-store"; // Import du store patient
 import { z } from "zod";
 
 // Utilisation du type fourni par Zod pour le formulaire (sans l'ID qui est généré automatiquement)
@@ -20,10 +20,12 @@ const CreatePatientPage: React.FC = () => {
     allergie: null,
     antecedents: null,
     dateAdmission: new Date(),
-    dateSortie: null,
+    dateSortie: new Date(),
     statut: "Hospitalisé",
   });
-  const [loading, setLoading] = useState<boolean>(false);
+
+  // Utilisation du store patient au lieu du state local pour le chargement
+  const { createPatient, isLoading } = usePatientStore();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -93,33 +95,24 @@ const CreatePatientPage: React.FC = () => {
           : formData.dateAdmission
           ? new Date(formData.dateAdmission).toISOString()
           : null,
+      dateSortie:
+        formData.dateSortie instanceof Date
+          ? formData.dateSortie.toISOString()
+          : formData.dateSortie
+          ? new Date(formData.dateSortie).toISOString()
+          : null,
     };
 
-    setLoading(true);
     setSubmitError(null);
 
     try {
-      const response = await fetch("http://localhost:3000/patients", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(dataToSend),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.details || "Erreur lors de la création du patient"
-        );
-      }
+      // Utilisation du store Zustand au lieu d'un appel fetch direct
+      await createPatient(dataToSend);
 
       // Redirection vers la liste des patients après création réussie
       navigate("/patients");
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Erreur inconnue");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -405,9 +398,9 @@ const CreatePatientPage: React.FC = () => {
           <button
             className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
             type="submit"
-            disabled={loading}
+            disabled={isLoading}
           >
-            {loading ? "Enregistrement..." : "Enregistrer"}
+            {isLoading ? "Enregistrement..." : "Enregistrer"}
           </button>
           <button
             className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"

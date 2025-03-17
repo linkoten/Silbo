@@ -3,70 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import ServicesTab from "@/components/tabs/ServicesTab";
 import PersonnelTab from "@/components/tabs/PersonnelTab";
 import ReservationsTab from "@/components/tabs/ReservationsTab";
-
-// Interfaces pour les données
-interface Etablissement {
-  id: string;
-  nom: string;
-  adresse: string;
-  capacite: number; // Assurez-vous que capacite est inclus
-}
-
-interface Service {
-  id: string;
-  nom: string;
-  capacite: number;
-  etablissementId: string;
-  lits?: Lit[];
-}
-
-interface Lit {
-  id: string;
-  numeroLit: string;
-  serviceId: string;
-  statut?: string;
-  chambre?: string;
-}
-
-interface Personnel {
-  id: string;
-  nom: string;
-  prenom: string;
-  profession: string;
-  etablissementId: string;
-  serviceId?: string;
-}
-
-interface Reservation {
-  id: string;
-  patientId: string;
-  litId: string;
-  dateArrivee: string;
-  dateDepart: string;
-  etablissementDestinationId?: string;
-  patient?: {
-    id: string;
-    nom: string;
-    prenom: string;
-  };
-  lit?: {
-    id: string;
-    numeroLit: string;
-    serviceId: string;
-    chambre?: string;
-  };
-  service?: {
-    id: string;
-    nom: string;
-  };
-}
-
-interface EtablissementDetails extends Etablissement {
-  services: Service[];
-  lits: Lit[];
-  personnels: Personnel[];
-  reservations: Reservation[];
-}
+import { useEtablissementStore } from "@/stores/etablissement-store";
 
 // Composant Card réutilisable
 const Card: React.FC<{
@@ -149,13 +86,18 @@ const Tab: React.FC<{
 const EtablissementDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [etablissement, setEtablissement] =
-    useState<EtablissementDetails | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
     "info" | "services" | "personnel" | "reservations"
   >("info");
+
+  // Utiliser le store Zustand au lieu des états locaux
+  const {
+    etablissementSelectionne: etablissement,
+    isLoading,
+    error,
+    fetchEtablissementDetails,
+    deleteEtablissement,
+  } = useEtablissementStore();
 
   // Animation effet "pulse" pour simuler un chargement
   const [pulse, setPulse] = useState(false);
@@ -168,159 +110,10 @@ const EtablissementDetailPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const fetchEtablissementDetails = async () => {
-      try {
-        setLoading(true);
-
-        // Récupération des données de l'établissement
-        const etablissementResponse = await fetch(
-          `http://localhost:3000/etablissements/${id}`
-        );
-
-        if (!etablissementResponse.ok) {
-          throw new Error(
-            `Établissement non trouvé (${etablissementResponse.status})`
-          );
-        }
-
-        const etablissementData: Etablissement =
-          await etablissementResponse.json();
-
-        // Récupération des services liés à cet établissement
-        const servicesResponse = await fetch(
-          `http://localhost:3000/services?etablissementId=${id}`
-        );
-        const services: Service[] = servicesResponse.ok
-          ? await servicesResponse.json()
-          : [];
-
-        // Pour chaque service, récupérer et associer ses lits
-        const servicesWithLits = await Promise.all(
-          services.map(async (service) => {
-            const litsResponse = await fetch(
-              `http://localhost:3000/lits?serviceId=${service.id}`
-            );
-            const lits: Lit[] = litsResponse.ok
-              ? await litsResponse.json()
-              : [];
-
-            // Filtrage pour ne garder que les lits qui appartiennent vraiment à ce service
-            const serviceLits = lits.filter(
-              (lit) => lit.serviceId === service.id
-            );
-
-            return {
-              ...service,
-              lits: serviceLits,
-            };
-          })
-        );
-
-        // Récupération des personnels associés à l'établissement
-        const personnelsResponse = await fetch(
-          `http://localhost:3000/personnels?etablissementId=${id}`
-        );
-        const personnels: Personnel[] = personnelsResponse.ok
-          ? await personnelsResponse.json()
-          : [];
-
-        console.log("Personnels récupérés:", personnels.length);
-
-        // Récupération de tous les lits de l'établissement
-        const allLits = servicesWithLits.flatMap(
-          (service) => service.lits || []
-        );
-
-        // Récupération des réservations pour les lits de l'établissement
-        let allReservations: Reservation[] = [];
-        if (allLits.length > 0) {
-          const reservationsPromises = allLits.map((lit) =>
-            fetch(
-              `http://localhost:3000/reservations-lits?litId=${lit.id}`
-            ).then((res) => (res.ok ? res.json() : []))
-          );
-
-          const reservationsResults = await Promise.all(reservationsPromises);
-          const unfilteredReservations = reservationsResults.flat();
-
-          // Filtrage pour s'assurer que les réservations correspondent aux lits de l'établissement
-          allReservations = unfilteredReservations.filter((reservation) =>
-            allLits.some((lit) => lit.id === reservation.litId)
-          );
-
-          // Enrichir les réservations avec les informations des patients et des lits
-          if (allReservations.length > 0) {
-            // Récupérer tous les patients associés aux réservations
-            const patientIds = [
-              ...new Set(allReservations.map((r) => r.patientId)),
-            ];
-            const patientsPromises = patientIds.map((patientId) =>
-              fetch(`http://localhost:3000/patients/${patientId}`).then((res) =>
-                res.ok ? res.json() : null
-              )
-            );
-
-            const patientsResults = await Promise.all(patientsPromises);
-            const patients = patientsResults.filter((p) => p !== null);
-
-            // Associer les patients et les lits à chaque réservation
-            allReservations = allReservations.map((reservation) => {
-              const patient = patients.find(
-                (p) => p && p.id === reservation.patientId
-              );
-              const lit = allLits.find((l) => l.id === reservation.litId);
-              const service = lit
-                ? servicesWithLits.find((s) => s.id === lit.serviceId)
-                : undefined;
-
-              return {
-                ...reservation,
-                patient: patient
-                  ? { id: patient.id, nom: patient.nom, prenom: patient.prenom }
-                  : undefined,
-                lit: lit
-                  ? {
-                      id: lit.id,
-                      numeroLit: lit.numeroLit,
-                      serviceId: lit.serviceId,
-                      chambre: lit.chambre,
-                    }
-                  : undefined,
-                service: service
-                  ? { id: service.id, nom: service.nom }
-                  : undefined,
-              };
-            });
-          }
-
-          console.log("Réservations récupérées:", allReservations.length);
-        }
-
-        console.log("Services avec leurs lits:", servicesWithLits);
-
-        // Assemblage des données
-        setEtablissement({
-          ...etablissementData,
-          services: servicesWithLits,
-          lits: allLits,
-          personnels: personnels,
-          reservations: allReservations,
-        });
-      } catch (err) {
-        console.error(
-          "Erreur lors du chargement des données de l'établissement:",
-          err
-        );
-        setError(err instanceof Error ? err.message : "Erreur inconnue");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (id) {
-      fetchEtablissementDetails();
+      fetchEtablissementDetails(id);
     }
-  }, [id]);
+  }, [id, fetchEtablissementDetails]);
 
   const handleDelete = async () => {
     if (
@@ -330,18 +123,12 @@ const EtablissementDetailPage: React.FC = () => {
     }
 
     try {
-      const response = await fetch(
-        `http://localhost:3000/etablissements/${id}`,
-        {
-          method: "DELETE",
+      if (id) {
+        const success = await deleteEtablissement(id);
+        if (success) {
+          navigate("/etablissements");
         }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Erreur lors de la suppression: ${response.status}`);
       }
-
-      navigate("/etablissements");
     } catch (err) {
       alert(
         err instanceof Error ? err.message : "Erreur lors de la suppression"
@@ -349,7 +136,7 @@ const EtablissementDetailPage: React.FC = () => {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div
@@ -507,13 +294,13 @@ const EtablissementDetailPage: React.FC = () => {
                 active={activeTab === "personnel"}
                 onClick={() => setActiveTab("personnel")}
               >
-                Personnel ({etablissement?.personnels.length || 0})
+                Personnel ({etablissement?.personnels?.length || 0})
               </Tab>
               <Tab
                 active={activeTab === "reservations"}
                 onClick={() => setActiveTab("reservations")}
               >
-                Réservations ({etablissement?.reservations.length || 0})
+                Réservations ({etablissement?.reservations?.length || 0})
               </Tab>
             </div>
           </div>
@@ -664,15 +451,16 @@ const EtablissementDetailPage: React.FC = () => {
             {/* Onglet Personnel - Remplacé par le composant PersonnelTab */}
             {activeTab === "personnel" && etablissement && (
               <PersonnelTab
-                personnels={etablissement.personnels}
-                services={etablissement.services}
+                personnels={etablissement.personnels || []}
                 etablissementId={etablissement.id}
               />
             )}
 
             {/* Onglet Réservations - Remplacé par le composant ReservationsTab */}
             {activeTab === "reservations" && etablissement && (
-              <ReservationsTab reservations={etablissement.reservations} />
+              <ReservationsTab
+                reservations={etablissement.reservations || []}
+              />
             )}
           </div>
         </div>

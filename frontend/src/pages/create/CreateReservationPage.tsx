@@ -10,9 +10,11 @@ import { z } from "zod";
 
 // Import des composants UI de base
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
 
 // Import du store Zustand et des composants Dialog
 import { useDialogStore } from "@/stores/dialog-store";
+import { useReservationLitStore } from "@/stores/reservation-lit-store";
 import PatientDialog from "@/components/dialogs/PatientDialog";
 import LitDialog from "@/components/dialogs/LitDialog";
 import EtablissementDialog from "@/components/dialogs/EtablissementDialog";
@@ -29,10 +31,10 @@ const CreateReservationLitPage: React.FC = () => {
     etablissementDestinationId: null,
   });
 
-  const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   // États pour les listes de données
   const [patients, setPatients] = useState<PatientFormValues[]>([]);
@@ -42,9 +44,10 @@ const CreateReservationLitPage: React.FC = () => {
   >([]);
   const [services, setServices] = useState<any[]>([]);
 
-  // Accès au store dialog avec actions pour ouvrir les dialogs
+  // Accès aux stores
   const { setShowPatientDialog, setShowLitDialog, setShowEtablissementDialog } =
     useDialogStore();
+  const { createReservationLit, isLoading } = useReservationLitStore();
 
   // Charger les données au chargement de la page
   useEffect(() => {
@@ -57,6 +60,11 @@ const CreateReservationLitPage: React.FC = () => {
         setPatients(data);
       } catch (error) {
         console.error("Erreur:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les patients",
+          variant: "destructive",
+        });
       }
     };
 
@@ -68,6 +76,11 @@ const CreateReservationLitPage: React.FC = () => {
         setLits(data);
       } catch (error) {
         console.error("Erreur:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les lits",
+          variant: "destructive",
+        });
       }
     };
 
@@ -80,6 +93,11 @@ const CreateReservationLitPage: React.FC = () => {
         setEtablissements(data);
       } catch (error) {
         console.error("Erreur:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les établissements",
+          variant: "destructive",
+        });
       }
     };
 
@@ -92,6 +110,11 @@ const CreateReservationLitPage: React.FC = () => {
         setServices(data);
       } catch (error) {
         console.error("Erreur:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les services",
+          variant: "destructive",
+        });
       }
     };
 
@@ -99,7 +122,7 @@ const CreateReservationLitPage: React.FC = () => {
     fetchLits();
     fetchEtablissements();
     fetchServices();
-  }, []);
+  }, [toast]);
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -145,31 +168,31 @@ const CreateReservationLitPage: React.FC = () => {
       return;
     }
 
-    setLoading(true);
     setSubmitError(null);
 
     try {
-      const response = await fetch("http://localhost:3000/reservations-lits", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
+      // Utiliser le store pour créer la réservation
+      await createReservationLit({
+        ...formData,
+        dateArrivee: formData.dateArrivee.toISOString(),
+        dateDepart: formData.dateDepart.toISOString(),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.details || "Erreur lors de la création de la réservation"
-        );
-      }
+      toast({
+        title: "Succès",
+        description: "La réservation a été créée avec succès",
+        variant: "success",
+      });
 
       // Redirection vers la liste des réservations après création réussie
-      navigate("/reservations-lits");
+      navigate("/reservationsLit");
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Erreur inconnue");
-    } finally {
-      setLoading(false);
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la création de la réservation",
+        variant: "destructive",
+      });
     }
   };
 
@@ -385,15 +408,15 @@ const CreateReservationLitPage: React.FC = () => {
           <Button
             type="submit"
             className="bg-blue-500 hover:bg-blue-700"
-            disabled={loading}
+            disabled={isLoading}
           >
-            {loading ? "Enregistrement..." : "Enregistrer"}
+            {isLoading ? "Enregistrement..." : "Enregistrer"}
           </Button>
           <Button
             type="button"
             variant="outline"
             className="bg-gray-500 hover:bg-gray-700 text-white"
-            onClick={() => navigate("/reservations-lits")}
+            onClick={() => navigate("/reservationsLit")}
           >
             Annuler
           </Button>

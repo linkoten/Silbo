@@ -2,40 +2,11 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import LitsTab from "@/components/tabs/LitsTab";
 import ServicePersonnelTab from "@/components/tabs/ServicePersonnelTab";
-
-// Interfaces pour les données
-interface Service {
-  id: string;
-  nom: string;
-  capacite: number;
-  etablissementId: string;
-}
-
-interface Etablissement {
-  id: string;
-  nom: string;
-  adresse: string;
-}
-
-interface Lit {
-  id: string;
-  numeroLit: string;
-  serviceId: string;
-}
-
-interface Personnel {
-  id: string;
-  nom: string;
-  prenom: string;
-  profession: string;
-  serviceId: string;
-}
-
-interface ServiceDetails extends Service {
-  etablissement?: Etablissement;
-  lits: Lit[];
-  personnels: Personnel[];
-}
+import { ServiceCapacityMetrics } from "@/components/service/ServiceCapacityMetrics";
+import { ServiceAlertBanner } from "@/components/service/ServiceAlertBanner";
+import { ServiceOccupationChart } from "@/components/service/ServiceOccupationChart";
+import { Toaster } from "@/components/ui/toaster";
+import { useServiceStore } from "@/stores/service-store";
 
 // Composant Card réutilisable
 const Card: React.FC<{
@@ -43,87 +14,27 @@ const Card: React.FC<{
   children: React.ReactNode;
   className?: string;
 }> = ({ title, children, className = "" }) => (
-  <div className={`bg-white rounded-xl shadow-lg overflow-hidden ${className}`}>
-    <div className="bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-4">
-      <h3 className="text-white text-lg font-bold">{title}</h3>
-    </div>
-    <div className="p-6">{children}</div>
+  <div className={`bg-white rounded-xl shadow-md p-6 ${className}`}>
+    <h3 className="text-lg font-semibold mb-4">{title}</h3>
+    {children}
   </div>
 );
-
-// Composant Badge
-const Badge: React.FC<{ children: React.ReactNode; color: string }> = ({
-  children,
-  color,
-}) => (
-  <span
-    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${color}`}
-  >
-    {children}
-  </span>
-);
-
-// Composant Tab pour les onglets
-const Tab: React.FC<{
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}> = ({ active, onClick, children }) => (
-  <button
-    onClick={onClick}
-    className={`px-6 py-3 font-medium text-sm transition-all duration-200 
-    ${
-      active
-        ? "border-b-2 border-blue-500 text-blue-600"
-        : "text-gray-500 hover:text-blue-500"
-    }`}
-  >
-    {children}
-  </button>
-);
-
-// Composant pour l'indicateur de capacité
-const CapacityIndicator: React.FC<{ total: number; used: number }> = ({
-  total,
-  used,
-}) => {
-  const percentage = Math.min(100, Math.round((used / total) * 100)) || 0;
-  let colorClass = "bg-green-500";
-
-  if (percentage > 80) {
-    colorClass = "bg-red-500";
-  } else if (percentage > 50) {
-    colorClass = "bg-yellow-500";
-  }
-
-  return (
-    <div className="mt-4">
-      <div className="flex justify-between text-sm mb-1">
-        <span>{used} occupés</span>
-        <span>{total} total</span>
-      </div>
-      <div className="w-full bg-gray-200 rounded-full h-2">
-        <div
-          className={`${colorClass} h-2 rounded-full transition-all duration-500 ease-in-out`}
-          style={{ width: `${percentage}%` }}
-        ></div>
-      </div>
-      <div className="text-right text-xs text-gray-500 mt-1">
-        {percentage}% d'occupation
-      </div>
-    </div>
-  );
-};
 
 const ServiceDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [service, setService] = useState<ServiceDetails | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"info" | "lits" | "personnel">(
     "info"
   );
+
+  // Use the service store instead of local state
+  const {
+    serviceSelectionne: service,
+    isLoading,
+    error,
+    fetchServiceDetails,
+    deleteService,
+  } = useServiceStore();
 
   // Animation effet "pulse" pour simuler un chargement
   const [pulse, setPulse] = useState(false);
@@ -136,93 +47,23 @@ const ServiceDetailPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const fetchServiceDetails = async () => {
-      try {
-        setLoading(true);
-
-        // Récupération des données du service
-        const serviceResponse = await fetch(
-          `http://localhost:3000/services/${id}`
-        );
-
-        if (!serviceResponse.ok) {
-          throw new Error(`Service non trouvé (${serviceResponse.status})`);
-        }
-
-        const serviceData: Service = await serviceResponse.json();
-
-        // Récupération uniquement des lits associés à ce service spécifique
-        const litsResponse = await fetch(
-          `http://localhost:3000/lits?serviceId=${id}`
-        );
-        let lits: Lit[] = litsResponse.ok ? await litsResponse.json() : [];
-
-        // Filtrage supplémentaire côté client pour s'assurer que seuls les lits du service actuel sont inclus
-        lits = lits.filter((lit) => lit.serviceId === id);
-
-        console.log("Lits filtrés pour le service", id, ":", lits);
-
-        // Récupération du personnel associé à ce service
-        const personnelsResponse = await fetch(
-          `http://localhost:3000/personnels?serviceId=${id}`
-        );
-        const personnels: Personnel[] = personnelsResponse.ok
-          ? await personnelsResponse.json()
-          : [];
-
-        // Récupération des détails de l'établissement
-        let etablissementData: Etablissement | undefined = undefined;
-        if (serviceData.etablissementId) {
-          try {
-            const etablissementResponse = await fetch(
-              `http://localhost:3000/etablissements/${serviceData.etablissementId}`
-            );
-            if (etablissementResponse.ok) {
-              etablissementData = await etablissementResponse.json();
-            }
-          } catch (err) {
-            console.warn(
-              "Impossible de récupérer les détails de l'établissement:",
-              err
-            );
-          }
-        }
-
-        // Assemblage des données
-        setService({
-          ...serviceData,
-          etablissement: etablissementData,
-          lits,
-          personnels,
-        });
-      } catch (err) {
-        console.error("Erreur lors du chargement des données du service:", err);
-        setError(err instanceof Error ? err.message : "Erreur inconnue");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (id) {
-      fetchServiceDetails();
+      fetchServiceDetails(id);
     }
-  }, [id]);
+  }, [id, fetchServiceDetails]);
 
   const handleDelete = async () => {
-    if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce service ?")) {
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce service?")) {
       return;
     }
 
     try {
-      const response = await fetch(`http://localhost:3000/services/${id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur lors de la suppression: ${response.status}`);
+      if (id) {
+        const success = await deleteService(id);
+        if (success) {
+          navigate("/services");
+        }
       }
-
-      navigate("/services");
     } catch (err) {
       alert(
         err instanceof Error ? err.message : "Erreur lors de la suppression"
@@ -230,7 +71,7 @@ const ServiceDetailPage: React.FC = () => {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div
@@ -240,7 +81,7 @@ const ServiceDetailPage: React.FC = () => {
         >
           <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-xl font-medium text-gray-700">
-            Chargement des informations du service...
+            Chargement des détails du service...
           </p>
         </div>
       </div>
@@ -289,270 +130,280 @@ const ServiceDetailPage: React.FC = () => {
     );
   }
 
+  console.log("Service:", service);
+  console.log("Service lits:", service.lits);
+  console.log("Est un tableau:", Array.isArray(service.lits));
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-10">
       <div className="container mx-auto px-4 max-w-6xl">
-        {/* En-tête */}
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800">
+              Service {service.nom}
+            </h1>
+            <p className="text-gray-600 mt-1">
+              {service.description || "Aucune description disponible"}
+            </p>
+          </div>
+          <div className="flex space-x-3">
+            <Link
+              to={`/services/edit/${id}`}
+              className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+            >
+              Modifier
+            </Link>
+            <button
+              onClick={handleDelete}
+              className="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+            >
+              Supprimer
+            </button>
+          </div>
+        </div>
+
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden mb-8">
-          <div className="bg-gradient-to-r from-blue-600 to-purple-700 py-6 px-8">
-            <div className="flex flex-col md:flex-row md:items-center justify-between">
-              <div className="flex items-center mb-4 md:mb-0">
-                <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center text-2xl font-bold text-blue-700 border-4 border-white shadow-lg mr-6">
-                  <svg
-                    className="w-10 h-10 text-blue-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                    ></path>
-                  </svg>
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold text-white">
-                    {service.nom}
-                  </h1>
-                  <div className="mt-1 flex flex-wrap gap-2">
-                    <Badge color="bg-blue-200 text-blue-800">
-                      Capacité: {service.capacite} lits
-                    </Badge>
-                    {service.etablissement && (
-                      <Badge color="bg-green-200 text-green-800">
-                        {service.etablissement.nom}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="flex space-x-3">
-                <Link
-                  to={`/services/edit/${id}`}
-                  className="bg-white hover:bg-gray-100 text-blue-600 px-4 py-2 rounded-lg shadow-md transition-all transform hover:-translate-y-1 flex items-center"
-                >
-                  <svg
-                    className="w-4 h-4 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                  Modifier
-                </Link>
-                <button
-                  onClick={handleDelete}
-                  className="bg-white hover:bg-gray-100 text-red-600 px-4 py-2 rounded-lg shadow-md transition-all transform hover:-translate-y-1 flex items-center"
-                >
-                  <svg
-                    className="w-4 h-4 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                  Supprimer
-                </button>
-              </div>
-            </div>
+          <div className="flex border-b overflow-x-auto">
+            <button
+              onClick={() => setActiveTab("info")}
+              className={`px-6 py-4 font-medium transition-colors ${
+                activeTab === "info"
+                  ? "border-b-2 border-blue-500 text-blue-600"
+                  : "text-gray-500 hover:text-blue-500"
+              }`}
+            >
+              Informations
+            </button>
+            <button
+              onClick={() => setActiveTab("lits")}
+              className={`px-6 py-4 font-medium transition-colors ${
+                activeTab === "lits"
+                  ? "border-b-2 border-blue-500 text-blue-600"
+                  : "text-gray-500 hover:text-blue-500"
+              }`}
+            >
+              Lits ({service.lits?.length || 0})
+            </button>
+            <button
+              onClick={() => setActiveTab("personnel")}
+              className={`px-6 py-4 font-medium transition-colors ${
+                activeTab === "personnel"
+                  ? "border-b-2 border-blue-500 text-blue-600"
+                  : "text-gray-500 hover:text-blue-500"
+              }`}
+            >
+              Personnel ({service.personnel?.length || 0})
+            </button>
           </div>
 
-          {/* Onglets de navigation */}
-          <div className="border-b">
-            <div className="flex overflow-x-auto">
-              <Tab
-                active={activeTab === "info"}
-                onClick={() => setActiveTab("info")}
-              >
-                Informations
-              </Tab>
-              <Tab
-                active={activeTab === "lits"}
-                onClick={() => setActiveTab("lits")}
-              >
-                Lits ({service.lits.length})
-              </Tab>
-              <Tab
-                active={activeTab === "personnel"}
-                onClick={() => setActiveTab("personnel")}
-              >
-                Personnel ({service.personnels.length})
-              </Tab>
-            </div>
-          </div>
-
-          {/* Contenu des onglets */}
           <div className="p-6">
             {/* Onglet Informations */}
             {activeTab === "info" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <Card title="Informations du service" className="h-full">
-                  <dl className="grid grid-cols-1 gap-4">
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">
-                        Nom du service
-                      </dt>
-                      <dd className="mt-1 text-lg text-gray-900 font-medium">
-                        {service.nom}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">
-                        Capacité totale
-                      </dt>
-                      <dd className="mt-1 text-gray-900">
-                        {service.capacite} lits
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">
-                        Établissement
-                      </dt>
-                      <dd className="mt-1 text-gray-900">
-                        {service.etablissement ? (
-                          <Link
-                            to={`/etablissements/${service.etablissementId}`}
-                            className="text-blue-600 hover:underline"
+              <div>
+                {/* Bannière d'alerte - apparaîtra uniquement si des conditions d'alerte sont remplies */}
+                <ServiceAlertBanner
+                  capaciteOccupee={
+                    ((service.litsOccupes || 0) / service.capacite) * 100
+                  }
+                  capaciteActuelleLitsDisponibles={service.litsDisponibles || 0}
+                  pourcentageLitsOccupes={service.tauxOccupation || 0}
+                />
+
+                {/* Grille des informations et métriques */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Première colonne - Informations du service */}
+                  <Card title="Informations du service" className="h-full">
+                    <dl className="grid grid-cols-1 gap-4">
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">
+                          Identifiant
+                        </dt>
+                        <dd className="mt-1 text-sm text-gray-900 font-mono">
+                          {service.id}
+                        </dd>
+                      </div>
+
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">
+                          Établissement
+                        </dt>
+                        <dd className="mt-1 text-sm text-gray-900">
+                          {service.etablissement ? (
+                            <Link
+                              to={`/etablissements/${service.etablissementId}`}
+                              className="text-blue-600 hover:underline"
+                            >
+                              {service.etablissement.nom}
+                            </Link>
+                          ) : (
+                            `ID: ${service.etablissementId}`
+                          )}
+                        </dd>
+                      </div>
+
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">
+                          Capacité
+                        </dt>
+                        <dd className="mt-1 text-sm text-gray-900">
+                          {service.capacite} lits
+                        </dd>
+                      </div>
+
+                      {service.etage && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">
+                            Étage
+                          </dt>
+                          <dd className="mt-1 text-sm text-gray-900">
+                            {service.etage}
+                          </dd>
+                        </div>
+                      )}
+
+                      {service.aile && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">
+                            Aile
+                          </dt>
+                          <dd className="mt-1 text-sm text-gray-900">
+                            {service.aile}
+                          </dd>
+                        </div>
+                      )}
+
+                      {service.specialite && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">
+                            Spécialité
+                          </dt>
+                          <dd className="mt-1 text-sm text-gray-900">
+                            {service.specialite}
+                          </dd>
+                        </div>
+                      )}
+
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">
+                          Statut
+                        </dt>
+                        <dd className="mt-1">
+                          <span
+                            className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              service.statut === "Fermé"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-green-100 text-green-800"
+                            }`}
                           >
-                            {service.etablissement.nom}
-                          </Link>
-                        ) : (
-                          <span className="text-gray-500">
-                            ID: {service.etablissementId}
+                            {service.statut || "Actif"}
                           </span>
-                        )}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">
-                        Identifiant du service
-                      </dt>
-                      <dd className="mt-1 text-gray-400 text-sm font-mono">
-                        {service.id}
-                      </dd>
-                    </div>
-                  </dl>
-                </Card>
-
-                <Card title="Occupation et disponibilité" className="h-full">
-                  <div className="flex flex-col h-full">
-                    <div className="mb-6">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-medium text-gray-600">
-                          Lits disponibles
-                        </span>
-                        <span className="text-lg font-bold text-blue-600">
-                          {service.lits.length}/{service.capacite}
-                        </span>
+                        </dd>
                       </div>
+                    </dl>
+                  </Card>
 
-                      <CapacityIndicator
-                        total={service.capacite}
-                        used={service.lits.length}
-                      />
+                  {/* Deuxième colonne - Métriques de capacité */}
+                  <ServiceCapacityMetrics
+                    capaciteTotal={service.capacite}
+                    litsDisponibles={service.litsDisponibles || 0}
+                    litsOccupes={service.litsOccupes || 0}
+                  />
+                </div>
 
-                      <div className="mt-6">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center">
-                            <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-                            <span className="text-sm">Disponible</span>
+                {/* Section pour le graphique d'occupation */}
+                <div className="mt-8">
+                  {/* Graphique d'occupation */}
+                  <ServiceOccupationChart
+                    capaciteTotal={service.capacite}
+                    litsOccupes={service.litsOccupes || 0}
+                    litsLibres={service.litsDisponibles || 0}
+                    litsEnMaintenance={service.litsEnMaintenance || 0}
+                  />
+                </div>
+
+                {/* Informations supplémentaires sur les types de lits */}
+                <div className="mt-8">
+                  <Card title="Distribution des lits par type">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                      {[
+                        "Standard",
+                        "Médical",
+                        "Soins intensifs",
+                        "Pédiatrique",
+                        "Psychiatrique",
+                      ].map((type) => {
+                        // S'assurer que service.lits est un tableau et qu'il appartient bien à ce service
+                        const lits = Array.isArray(service.lits)
+                          ? service.lits.filter(
+                              (lit) => lit.serviceId === service.id
+                            )
+                          : [];
+
+                        // Calculer le compte et le pourcentage seulement si nous avons un tableau valide
+                        const count = lits.filter(
+                          (lit) => lit.type === type
+                        ).length;
+                        const percentage =
+                          lits.length > 0
+                            ? Math.round((count / lits.length) * 100)
+                            : 0;
+
+                        return (
+                          <div
+                            key={type}
+                            className="bg-gray-50 p-3 rounded-lg text-center"
+                          >
+                            <div className="text-sm font-medium text-gray-600">
+                              {type}
+                            </div>
+                            <div className="mt-2 text-2xl font-bold text-blue-600">
+                              {count}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {percentage}% du total
+                            </div>
                           </div>
-                          <span className="text-sm font-semibold">
-                            {service.capacite - service.lits.length}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
-                            <span className="text-sm">Occupé</span>
-                          </div>
-                          <span className="text-sm font-semibold">
-                            {service.lits.length}
-                          </span>
-                        </div>
-                      </div>
+                        );
+                      })}
                     </div>
-
-                    <div className="mt-auto text-center">
-                      <Link
-                        to={`/lits/create?serviceId=${id}`}
-                        className="mt-4 inline-block bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md transition-colors"
-                      >
-                        Ajouter un lit dans ce service
-                      </Link>
-                    </div>
-                  </div>
-                </Card>
+                  </Card>
+                </div>
               </div>
             )}
 
             {/* Onglet Lits - Utilisation du composant LitsTab */}
             {activeTab === "lits" && service && (
-              <LitsTab lits={service.lits} serviceId={service.id} />
+              <LitsTab
+                lits={
+                  Array.isArray(service.lits)
+                    ? service.lits.filter((lit) => lit.serviceId === service.id)
+                    : []
+                }
+                serviceId={service.id}
+              />
             )}
 
             {/* Onglet Personnel - Utilisation du composant ServicePersonnelTab */}
             {activeTab === "personnel" && service && (
               <ServicePersonnelTab
-                personnels={service.personnels}
+                personnels={service.personnel || []}
                 serviceId={service.id}
               />
             )}
           </div>
         </div>
 
-        {/* Pied de page avec boutons d'action */}
-        <div className="flex justify-between">
+        <div className="flex justify-end">
           <Link
             to="/services"
-            className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-2 px-6 rounded-lg transition-colors flex items-center"
+            className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-6 rounded-lg transition-colors"
           >
-            <svg
-              className="w-4 h-4 mr-2"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M10 19l-7-7m0 0l7-7m-7 7h18"
-              />
-            </svg>
             Retour à la liste des services
           </Link>
-
-          <div className="flex space-x-3">
-            <Link
-              to={`/lits/create?serviceId=${id}`}
-              className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
-            >
-              Ajouter un lit
-            </Link>
-            <Link
-              to={`/personnels/create?serviceId=${id}`}
-              className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
-            >
-              Ajouter du personnel
-            </Link>
-          </div>
         </div>
+
+        {/* Ajouter le composant Toaster pour afficher les notifications */}
+        <Toaster />
       </div>
     </div>
   );

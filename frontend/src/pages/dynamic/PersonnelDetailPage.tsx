@@ -1,37 +1,22 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import PersonnelDetailsTab from "@/components/tabs/PersonnelDetailsTab";
-import PersonnelPatientsTab from "@/components/tabs/PersonnelPatientsTab";
+import { formatDate } from "../../utils/formatUtils";
+import { usePersonnelStore } from "@/stores/personnel-store";
+import { Toaster } from "@/components/ui/toaster";
 
-// Interfaces pour les données
-interface Personnel {
-  id: string;
-  nom: string;
-  prenom: string;
-  profession: string;
-  serviceId: string;
-}
-
-interface Service {
-  id: string;
-  nom: string;
-}
-
-interface PriseEnCharge {
-  id: string;
-  patientId: string;
-}
-
-interface Patient {
-  id: string;
-  nom: string;
-  prenom: string;
-}
-
-interface PersonnelDetails extends Personnel {
-  service?: Service;
-  prisesEnCharge: Array<PriseEnCharge & { patient?: Patient }>;
-}
+// Composant Card réutilisable
+const Card: React.FC<{
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}> = ({ title, children, className = "" }) => (
+  <div className={`bg-white rounded-xl shadow-lg overflow-hidden ${className}`}>
+    <div className="bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-4">
+      <h3 className="text-white text-lg font-bold">{title}</h3>
+    </div>
+    <div className="p-6">{children}</div>
+  </div>
+);
 
 // Composant Badge
 const Badge: React.FC<{ children: React.ReactNode; color: string }> = ({
@@ -67,10 +52,18 @@ const Tab: React.FC<{
 const PersonnelDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [personnel, setPersonnel] = useState<PersonnelDetails | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"info" | "patients">("info");
+  const [activeTab, setActiveTab] = useState<
+    "info" | "prisesEnCharge" | "services"
+  >("info");
+
+  // Utiliser le store personnel
+  const {
+    personnelSelectionne: personnel,
+    isLoading,
+    error,
+    fetchPersonnelDetails,
+    deletePersonnel,
+  } = usePersonnelStore();
 
   // Animation effet "pulse" pour simuler un chargement
   const [pulse, setPulse] = useState(false);
@@ -83,106 +76,23 @@ const PersonnelDetailPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const fetchPersonnelDetails = async () => {
-      try {
-        setLoading(true);
-
-        // Récupération des données du personnel
-        const personnelResponse = await fetch(
-          `http://localhost:3000/personnels/${id}`
-        );
-
-        if (!personnelResponse.ok) {
-          throw new Error(`Personnel non trouvé (${personnelResponse.status})`);
-        }
-
-        const personnelData: Personnel = await personnelResponse.json();
-
-        // Récupération du service associé
-        let serviceData: Service | undefined = undefined;
-        try {
-          const serviceResponse = await fetch(
-            `http://localhost:3000/services/${personnelData.serviceId}`
-          );
-          if (serviceResponse.ok) {
-            serviceData = await serviceResponse.json();
-          }
-        } catch (err) {
-          console.warn("Impossible de récupérer les détails du service:", err);
-        }
-
-        // Récupération des prises en charge
-        const prisesResponse = await fetch(
-          `http://localhost:3000/prises-en-charge?personnelId=${id}`
-        );
-        let prisesEnCharge: Array<PriseEnCharge & { patient?: Patient }> = [];
-
-        if (prisesResponse.ok) {
-          const prisesData: PriseEnCharge[] = await prisesResponse.json();
-
-          // Récupération des informations des patients pour chaque prise en charge
-          prisesEnCharge = await Promise.all(
-            prisesData.map(async (prise) => {
-              let patient: Patient | undefined = undefined;
-              try {
-                const patientResponse = await fetch(
-                  `http://localhost:3000/patients/${prise.patientId}`
-                );
-                if (patientResponse.ok) {
-                  patient = await patientResponse.json();
-                }
-              } catch (err) {
-                console.warn(
-                  `Impossible de récupérer les détails du patient ${prise.patientId}:`,
-                  err
-                );
-              }
-              return { ...prise, patient };
-            })
-          );
-        }
-
-        // Assemblage des données
-        setPersonnel({
-          ...personnelData,
-          service: serviceData,
-          prisesEnCharge,
-        });
-      } catch (err) {
-        console.error(
-          "Erreur lors du chargement des données du personnel:",
-          err
-        );
-        setError(err instanceof Error ? err.message : "Erreur inconnue");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (id) {
-      fetchPersonnelDetails();
+      fetchPersonnelDetails(id);
     }
-  }, [id]);
+  }, [id, fetchPersonnelDetails]);
 
   const handleDelete = async () => {
-    if (
-      !window.confirm(
-        "Êtes-vous sûr de vouloir supprimer ce membre du personnel ?"
-      )
-    ) {
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce personnel ?")) {
       return;
     }
 
     try {
-      const response = await fetch(`http://localhost:3000/personnels/${id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur lors de la suppression: ${response.status}`);
+      if (id) {
+        const success = await deletePersonnel(id);
+        if (success) {
+          navigate("/personnels");
+        }
       }
-
-      navigate("/personnels");
     } catch (err) {
       alert(
         err instanceof Error ? err.message : "Erreur lors de la suppression"
@@ -190,7 +100,20 @@ const PersonnelDetailPage: React.FC = () => {
     }
   };
 
-  if (loading) {
+  // Calculer l'âge à partir de la date de naissance
+  const calculateAge = (dateString?: Date) => {
+    if (!dateString) return null;
+    const birthDate = new Date(dateString);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div
@@ -200,7 +123,7 @@ const PersonnelDetailPage: React.FC = () => {
         >
           <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-xl font-medium text-gray-700">
-            Chargement des informations du personnel...
+            Chargement des détails du personnel...
           </p>
         </div>
       </div>
@@ -232,7 +155,7 @@ const PersonnelDetailPage: React.FC = () => {
             to="/personnels"
             className="mt-6 inline-block bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
           >
-            Retour à la liste du personnel
+            Retour à la liste des personnels
           </Link>
         </div>
       </div>
@@ -257,21 +180,26 @@ const PersonnelDetailPage: React.FC = () => {
           <div className="bg-gradient-to-r from-blue-600 to-purple-700 py-6 px-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between">
               <div className="flex items-center mb-4 md:mb-0">
-                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-3xl font-bold text-blue-700 border-4 border-white shadow-lg mr-6">
-                  {personnel.prenom.charAt(0)}
+                <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center text-2xl font-bold text-blue-700 border-4 border-white shadow-lg mr-6">
                   {personnel.nom.charAt(0)}
+                  {personnel.prenom.charAt(0)}
                 </div>
                 <div>
                   <h1 className="text-3xl font-bold text-white">
-                    {personnel.prenom} {personnel.nom}
+                    {personnel.nom} {personnel.prenom}
                   </h1>
                   <div className="mt-1 flex flex-wrap gap-2">
                     <Badge color="bg-blue-200 text-blue-800">
                       {personnel.profession}
                     </Badge>
-                    {personnel.service && (
+                    {personnel.specialite && (
+                      <Badge color="bg-purple-200 text-purple-800">
+                        {personnel.specialite}
+                      </Badge>
+                    )}
+                    {personnel.dateNaissance && (
                       <Badge color="bg-green-200 text-green-800">
-                        Service: {personnel.service.nom}
+                        {calculateAge(personnel.dateNaissance)} ans
                       </Badge>
                     )}
                   </div>
@@ -330,35 +258,395 @@ const PersonnelDetailPage: React.FC = () => {
                 Informations
               </Tab>
               <Tab
-                active={activeTab === "patients"}
-                onClick={() => setActiveTab("patients")}
+                active={activeTab === "prisesEnCharge"}
+                onClick={() => setActiveTab("prisesEnCharge")}
               >
-                Patients suivis ({personnel.prisesEnCharge.length})
+                Prises en charge ({personnel.prisesEnCharge?.length || 0})
+              </Tab>
+              <Tab
+                active={activeTab === "services"}
+                onClick={() => setActiveTab("services")}
+              >
+                Services ({personnel.servicesResponsable?.length || 0})
               </Tab>
             </div>
           </div>
 
           {/* Contenu des onglets */}
           <div className="p-6">
-            {/* Onglet Informations - Utilisation du composant PersonnelDetailsTab */}
+            {/* Onglet Informations */}
             {activeTab === "info" && (
-              <PersonnelDetailsTab
-                personnel={personnel}
-                service={personnel.service}
-              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Informations personnelles */}
+                <Card title="Informations personnelles" className="h-full">
+                  <dl className="grid grid-cols-1 gap-4">
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">
+                        Nom complet
+                      </dt>
+                      <dd className="mt-1 text-lg text-gray-900 font-medium">
+                        {personnel.nom} {personnel.prenom}
+                      </dd>
+                    </div>
+
+                    {personnel.dateNaissance && (
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">
+                          Date de naissance
+                        </dt>
+                        <dd className="mt-1 text-gray-900">
+                          {formatDate(personnel.dateNaissance.toString())} (
+                          {calculateAge(personnel.dateNaissance)} ans)
+                        </dd>
+                      </div>
+                    )}
+
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">
+                        Contact
+                      </dt>
+                      <dd className="mt-1">
+                        <div className="flex items-center mb-1">
+                          <svg
+                            className="w-4 h-4 mr-2 text-gray-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                            />
+                          </svg>
+                          {personnel.email || "Email non renseigné"}
+                        </div>
+                        <div className="flex items-center">
+                          <svg
+                            className="w-4 h-4 mr-2 text-gray-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                            />
+                          </svg>
+                          {personnel.telephone || "Téléphone non renseigné"}
+                        </div>
+                      </dd>
+                    </div>
+
+                    {personnel.matricule && (
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">
+                          Matricule
+                        </dt>
+                        <dd className="mt-1 text-gray-900 font-mono">
+                          {personnel.matricule}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                </Card>
+
+                {/* Informations professionnelles */}
+                <Card title="Informations professionnelles" className="h-full">
+                  <dl className="grid grid-cols-1 gap-4">
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">
+                        Profession
+                      </dt>
+                      <dd className="mt-1">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-sm font-medium bg-blue-100 text-blue-800">
+                          {personnel.profession}
+                        </span>
+                      </dd>
+                    </div>
+
+                    {personnel.specialite && (
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">
+                          Spécialité
+                        </dt>
+                        <dd className="mt-1 text-gray-900">
+                          {personnel.specialite}
+                        </dd>
+                      </div>
+                    )}
+
+                    {personnel.service && (
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">
+                          Service affecté
+                        </dt>
+                        <dd className="mt-1">
+                          <Link
+                            to={`/services/${personnel.serviceId}`}
+                            className="text-blue-600 hover:underline flex items-center"
+                          >
+                            <svg
+                              className="w-4 h-4 mr-1"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                              />
+                            </svg>
+                            {personnel.service.nom}
+                          </Link>
+                        </dd>
+                      </div>
+                    )}
+
+                    {personnel.etablissement && (
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">
+                          Établissement
+                        </dt>
+                        <dd className="mt-1">
+                          <Link
+                            to={`/etablissements/${personnel.etablissementId}`}
+                            className="text-blue-600 hover:underline flex items-center"
+                          >
+                            <svg
+                              className="w-4 h-4 mr-1"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                              />
+                            </svg>
+                            {personnel.etablissement.nom}
+                          </Link>
+                        </dd>
+                      </div>
+                    )}
+
+                    {personnel.dateEmbauche && (
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">
+                          Date d'embauche
+                        </dt>
+                        <dd className="mt-1 text-gray-900">
+                          {formatDate(personnel.dateEmbauche.toString())}
+                        </dd>
+                      </div>
+                    )}
+
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">
+                        Statut
+                      </dt>
+                      <dd className="mt-1">
+                        <span
+                          className={`px-2 py-1 text-xs rounded-full font-medium
+                        ${
+                          personnel.statut === "Actif"
+                            ? "bg-green-100 text-green-800"
+                            : personnel.statut === "En congé"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : personnel.statut === "Inactif"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                        >
+                          {personnel.statut || "Non défini"}
+                        </span>
+                      </dd>
+                    </div>
+                  </dl>
+                </Card>
+              </div>
             )}
 
-            {/* Onglet Patients - Utilisation du composant PersonnelPatientsTab */}
-            {activeTab === "patients" && (
-              <PersonnelPatientsTab
-                prisesEnCharge={personnel.prisesEnCharge}
-                personnelId={personnel.id}
-              />
+            {/* Onglet Prises en charge */}
+            {activeTab === "prisesEnCharge" && (
+              <div>
+                {personnel.prisesEnCharge?.length > 0 ? (
+                  <div className="overflow-x-auto bg-white rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Patient
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Date début
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Date fin
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Statut
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {personnel.prisesEnCharge.map((pec) => (
+                          <tr key={pec.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {pec.patient ? (
+                                <Link
+                                  to={`/patients/${pec.patientId}`}
+                                  className="text-blue-600 hover:underline"
+                                >
+                                  {pec.patient.nom} {pec.patient.prenom}
+                                </Link>
+                              ) : (
+                                <span className="text-gray-500">
+                                  ID: {pec.patientId}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {formatDate(pec.dateDebut)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {pec.dateFin ? (
+                                formatDate(pec.dateFin)
+                              ) : (
+                                <span className="text-green-500">En cours</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span
+                                className={`px-2 py-1 text-xs rounded-full font-medium 
+                                ${
+                                  !pec.dateFin
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-blue-100 text-blue-800"
+                                }`}
+                              >
+                                {!pec.dateFin ? "Active" : "Terminée"}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <Link
+                                to={`/prises-en-charge/${pec.id}`}
+                                className="text-blue-600 hover:text-blue-900 mr-3"
+                              >
+                                Détails
+                              </Link>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <p className="text-gray-500 mb-4">
+                      Aucune prise en charge pour ce personnel
+                    </p>
+                    <Link
+                      to={`/prises-en-charge/create?personnelId=${id}`}
+                      className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                    >
+                      Ajouter une prise en charge
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Onglet Services responsable */}
+            {activeTab === "services" && (
+              <div>
+                {personnel.servicesResponsable &&
+                personnel.servicesResponsable.length > 0 ? (
+                  <div className="overflow-x-auto bg-white rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Nom du service
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Établissement
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Capacité
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Statut
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {personnel.servicesResponsable.map((service) => (
+                          <tr key={service.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <Link
+                                to={`/services/${service.id}`}
+                                className="text-blue-600 hover:underline font-medium"
+                              >
+                                {service.nom}
+                              </Link>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {service.etablissementId}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {service.capacite} lits
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span
+                                className={`px-2 py-1 text-xs rounded-full font-medium 
+                                ${
+                                  service.statut === "Actif"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-yellow-100 text-yellow-800"
+                                }`}
+                              >
+                                {service.statut || "Actif"}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <Link
+                                to={`/services/${service.id}`}
+                                className="text-blue-600 hover:text-blue-900"
+                              >
+                                Voir le service
+                              </Link>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <p className="text-gray-500">
+                      Ce personnel n'est responsable d'aucun service
+                    </p>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
 
-        {/* Pied de page avec boutons d'action */}
         <div className="flex justify-between">
           <Link
             to="/personnels"
@@ -377,16 +665,20 @@ const PersonnelDetailPage: React.FC = () => {
                 d="M10 19l-7-7m0 0l7-7m-7 7h18"
               />
             </svg>
-            Retour à la liste du personnel
+            Retour à la liste des personnels
           </Link>
 
-          <Link
-            to={`/prises-en-charge/create?personnelId=${id}`}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
-          >
-            Ajouter une prise en charge
-          </Link>
+          <div className="flex space-x-3">
+            <Link
+              to={`/prises-en-charge/create?personnelId=${id}`}
+              className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+            >
+              Nouvelle prise en charge
+            </Link>
+          </div>
         </div>
+
+        <Toaster />
       </div>
     </div>
   );
