@@ -31,6 +31,7 @@ import ReservationLitDetailPage from "./pages/dynamic/ReservationLitDetailPage.j
 import TransfertDetailPage from "./pages/dynamic/TransfertDetailPage.js";
 import EditPriseEnChargePage from "./pages/edit/EditPriseEnChargePage.js";
 import EditPersonnelPage from "./pages/edit/EditPersonnelPage.js";
+import EditPatientPage from "./pages/edit/EditPatientPage.js";
 
 function App() {
   return (
@@ -91,6 +92,7 @@ function App() {
                 path="/prisesEnCharge/edit/:id"
                 element={<EditPriseEnChargePage />}
               />
+              <Route path="/patients/edit/:id" element={<EditPatientPage />} />
               <Route
                 path="/personnels/edit/:id"
                 element={<EditPersonnelPage />}

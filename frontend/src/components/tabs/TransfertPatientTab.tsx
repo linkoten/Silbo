@@ -1,11 +1,6 @@
+import { Patient } from "@/types/types";
 import React from "react";
 import { Link } from "react-router-dom";
-
-interface Patient {
-  id: string;
-  nom: string;
-  prenom: string;
-}
 
 interface TransfertPatientTabProps {
   patient?: Patient;

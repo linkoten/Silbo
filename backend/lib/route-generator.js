@@ -71,6 +71,25 @@ async function generateModelRoutes(fastify, options) {
     }
     // Route pour mettre à jour un élément
     if (!excludeRoutes.includes("update")) {
+        // Supporter à la fois PATCH et PUT pour la mise à jour
+        fastify.patch(`/${pluralName}/:id`, async (request, reply) => {
+            try {
+                const { id } = request.params;
+                const updatedItem = await model.update({
+                    where: { id },
+                    data: request.body,
+                });
+                return reply.send(updatedItem);
+            }
+            catch (error) {
+                console.error(`Erreur lors de la mise à jour du ${modelName}:`, error);
+                return reply.status(400).send({
+                    error: `Erreur lors de la mise à jour du ${modelName}`,
+                    details: error instanceof Error ? error.message : String(error),
+                });
+            }
+        });
+        // Garder également la route PUT pour la compatibilité
         fastify.put(`/${pluralName}/:id`, async (request, reply) => {
             try {
                 const { id } = request.params;

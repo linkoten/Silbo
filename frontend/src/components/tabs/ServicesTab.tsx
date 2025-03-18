@@ -1,19 +1,6 @@
+import { Service } from "@/types/types";
 import React from "react";
 import { Link } from "react-router-dom";
-
-interface Service {
-  id: string;
-  nom: string;
-  capacite: number;
-  etablissementId: string;
-  lits?: Lit[];
-}
-
-interface Lit {
-  id: string;
-  numeroLit: string;
-  serviceId: string;
-}
 
 interface ServicesTabProps {
   services: Service[];

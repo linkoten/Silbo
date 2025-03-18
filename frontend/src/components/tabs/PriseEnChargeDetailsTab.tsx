@@ -1,17 +1,8 @@
+import { PriseEnChargeWithRelations } from "@/stores/prise-en-charge-store";
 import React from "react";
 
-interface PriseEnChargeDetail {
-  id: string;
-  dateDebut: string;
-  dateFin?: string;
-  description?: string;
-  diagnostic?: string;
-  traitement?: string;
-  notes?: string;
-}
-
 interface PriseEnChargeDetailsTabProps {
-  priseEnCharge: PriseEnChargeDetail;
+  priseEnCharge: PriseEnChargeWithRelations;
 }
 
 const PriseEnChargeDetailsTab: React.FC<PriseEnChargeDetailsTabProps> = ({

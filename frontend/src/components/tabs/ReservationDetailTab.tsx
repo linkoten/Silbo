@@ -1,20 +1,9 @@
+import { ReservationLitWithRelations } from "@/stores/reservation-lit-store";
 import React from "react";
 import { Link } from "react-router-dom";
 
-interface ReservationDetail {
-  id: string;
-  dateDepart: string;
-  dateArrivee: string;
-  etablissementDestinationId: string;
-  etablissementDestination?: {
-    id: string;
-    nom: string;
-    adresse: string;
-  };
-}
-
 interface ReservationDetailTabProps {
-  reservation: ReservationDetail;
+  reservation: ReservationLitWithRelations;
 }
 
 const ReservationDetailTab: React.FC<ReservationDetailTabProps> = ({

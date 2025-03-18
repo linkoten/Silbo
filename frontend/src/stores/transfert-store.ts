@@ -1,7 +1,13 @@
 import { create } from "zustand";
 import { Transfert, Patient, Service, Etablissement } from "@/types/types";
 
-export interface TransfertWithRelations extends Transfert {
+// Extend the Transfert type to include the missing properties
+type ExtendedTransfert = Transfert & {
+  etablissementDepartId?: string;
+  etablissementArriveeId?: string;
+};
+
+export interface TransfertWithRelations extends ExtendedTransfert {
   patient?: Patient;
   serviceDepart?: Service;
   serviceArrivee?: Service;
@@ -50,7 +56,7 @@ export const useTransfertStore = create<TransfertState>((set, get) => ({
 
       // Enrichir les transferts avec leurs relations
       const transfertsEnrichis: TransfertWithRelations[] = await Promise.all(
-        baseTransferts.map(async (transfert: Transfert) => {
+        baseTransferts.map(async (transfert: ExtendedTransfert) => {
           const enriched: TransfertWithRelations = { ...transfert };
 
           // Récupérer les infos du patient
@@ -141,7 +147,7 @@ export const useTransfertStore = create<TransfertState>((set, get) => ({
           `Erreur lors de la récupération du transfert (${response.status})`
         );
 
-      const transfert = await response.json();
+      const transfert = (await response.json()) as ExtendedTransfert;
       const enriched: TransfertWithRelations = { ...transfert };
 
       // Récupérer les infos du patient

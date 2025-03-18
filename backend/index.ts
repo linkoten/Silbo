@@ -1,6 +1,5 @@
 import fastify from "fastify";
 import cors from "@fastify/cors";
-import { User } from "@prisma/client";
 import { generateModelRoutes } from "./lib/route-generator";
 
 const server = fastify();
@@ -9,12 +8,12 @@ async function startServer() {
   // Configuration CORS pour autoriser les requêtes du frontend
   await server.register(cors, {
     origin: true, // Autorise toutes les origines en développement
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"], // Ajout de PATCH
   });
 
-  // Enregistrer les routes dynamiques pour chaque modèle
+  // Enregistrer les routes dynamiques pour chaque modèle (sauf patients qui a sa propre implémentation)
   const models = [
-    { modelName: "patient", pluralName: "patients" },
+    { modelName: "patient", pluralName: "patients" }, // Commenté car géré séparément
     { modelName: "lit", pluralName: "lits" },
     { modelName: "service", pluralName: "services" },
     { modelName: "etablissement", pluralName: "etablissements" },

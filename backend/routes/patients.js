@@ -26,4 +26,41 @@ async function patientRoutes(server) {
         }
         return reply.status(201).send(result.data);
     });
+    // Route pour mettre à jour un patient existant
+    server.patch("/patients/:id", async (request, reply) => {
+        const { id } = request.params;
+        const patientData = request.body;
+        const result = await patientService.updatePatient(id, patientData);
+        if (!result.success) {
+            return reply.status(400).send({
+                error: "Mise à jour échouée",
+                details: result.error,
+            });
+        }
+        return reply.send(result.data);
+    });
+    // Route pour récupérer un patient spécifique par son ID
+    server.get("/patients/:id", async (request, reply) => {
+        const { id } = request.params;
+        const result = await patientService.getPatientById(id);
+        if (!result.success) {
+            return reply.status(404).send({
+                error: "Patient non trouvé",
+                details: result.error,
+            });
+        }
+        return reply.send(result.data);
+    });
+    // Route pour supprimer un patient
+    server.delete("/patients/:id", async (request, reply) => {
+        const { id } = request.params;
+        const result = await patientService.deletePatient(id);
+        if (!result.success) {
+            return reply.status(400).send({
+                error: "Suppression échouée",
+                details: result.error,
+            });
+        }
+        return reply.status(204).send();
+    });
 }

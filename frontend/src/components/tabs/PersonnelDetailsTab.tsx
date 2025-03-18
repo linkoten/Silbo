@@ -1,18 +1,6 @@
+import { Personnel, Service } from "@/types/types";
 import React from "react";
 import { Link } from "react-router-dom";
-
-interface Personnel {
-  id: string;
-  nom: string;
-  prenom: string;
-  profession: string;
-  serviceId: string;
-}
-
-interface Service {
-  id: string;
-  nom: string;
-}
 
 interface PersonnelDetailsTabProps {
   personnel: Personnel;

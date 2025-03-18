@@ -1,20 +1,9 @@
+import { PriseEnChargeWithRelations } from "@/stores/prise-en-charge-store";
 import React from "react";
 import { Link } from "react-router-dom";
 
-interface Patient {
-  id: string;
-  nom: string;
-  prenom: string;
-}
-
-interface PriseEnCharge {
-  id: string;
-  patientId: string;
-  patient?: Patient;
-}
-
 interface PersonnelPatientsTabProps {
-  prisesEnCharge: PriseEnCharge[];
+  prisesEnCharge: PriseEnChargeWithRelations[];
   personnelId: string;
 }
 

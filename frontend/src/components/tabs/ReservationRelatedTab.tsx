@@ -1,23 +1,8 @@
+import { Patient, Lit, Service } from "@/types/types";
 import React from "react";
 import { Link } from "react-router-dom";
 
-interface Patient {
-  id: string;
-  nom: string;
-  prenom: string;
-}
-
-interface Lit {
-  id: string;
-  numeroLit: string;
-  serviceId: string;
-}
-
-interface Service {
-  id: string;
-  nom: string;
-}
-
+// Create a specific props interface for this component
 interface ReservationRelatedTabProps {
   patient?: Patient;
   patientId: string;

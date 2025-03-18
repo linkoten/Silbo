@@ -1,13 +1,19 @@
-import React, { useState, FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
-import { patientFormSchema } from "@/components/userFormSchema"; // Ou le chemin correct
-import { usePatientStore } from "@/stores/patient-store"; // Import du store patient
+import React, { useState, useEffect, FormEvent } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { patientFormSchema } from "@/components/userFormSchema";
+import { usePatientStore } from "@/stores/patient-store";
 import { z } from "zod";
+import { useToast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/button";
 
-// Utilisation du type fourni par Zod pour le formulaire (sans l'ID qui est généré automatiquement)
+// Utilisation du type fourni par Zod pour le formulaire
 type PatientFormData = z.infer<typeof patientFormSchema>;
 
-const CreatePatientPage: React.FC = () => {
+const EditPatientPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
   const [formData, setFormData] = useState<PatientFormData>({
     nom: "",
     prenom: "",
@@ -24,11 +30,50 @@ const CreatePatientPage: React.FC = () => {
     statut: "Hospitalisé",
   });
 
-  // Utilisation du store patient au lieu du state local pour le chargement
-  const { createPatient, isLoading } = usePatientStore();
+  const {
+    patientSelectionne,
+    isLoading,
+    error,
+    fetchPatientDetails,
+    updatePatient,
+  } = usePatientStore();
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const navigate = useNavigate();
+
+  // Charger les détails du patient lors du montage du composant
+  useEffect(() => {
+    if (id) {
+      fetchPatientDetails(id);
+    }
+  }, [id, fetchPatientDetails]);
+
+  // Mettre à jour le formulaire lorsque les détails du patient sont chargés
+  useEffect(() => {
+    if (patientSelectionne) {
+      setFormData({
+        nom: patientSelectionne.nom,
+        prenom: patientSelectionne.prenom,
+        dateNaissance: patientSelectionne.dateSortie
+          ? new Date(patientSelectionne.dateSortie)
+          : new Date(),
+        adresse: patientSelectionne.adresse || null,
+        telephone: patientSelectionne.telephone || null,
+        email: patientSelectionne.email || null,
+        numeroSecu: patientSelectionne.numeroSecu || null,
+        groupeSanguin: patientSelectionne.groupeSanguin || null,
+        allergie: patientSelectionne.allergie || null,
+        antecedents: patientSelectionne.antecedents || null,
+        dateAdmission: patientSelectionne.dateAdmission
+          ? new Date(patientSelectionne.dateAdmission)
+          : new Date(),
+        dateSortie: patientSelectionne.dateSortie
+          ? new Date(patientSelectionne.dateSortie)
+          : null,
+        statut: patientSelectionne.statut || "Hospitalisé",
+      });
+    }
+  }, [patientSelectionne]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -40,12 +85,12 @@ const CreatePatientPage: React.FC = () => {
     if (type === "date") {
       setFormData({
         ...formData,
-        [name]: value, // value est déjà au format YYYY-MM-DD
+        [name]: value ? new Date(value) : null,
       });
     } else {
       setFormData({
         ...formData,
-        [name]: value,
+        [name]: value === "" ? null : value,
       });
     }
   };
@@ -75,52 +120,85 @@ const CreatePatientPage: React.FC = () => {
     e.preventDefault();
 
     // Valider le formulaire avant de soumettre
-    if (!validateForm()) {
+    if (!validateForm() || !id) {
       return;
     }
-
-    console.log(formData);
 
     // Créer une copie des données pour l'envoi
     const dataToSend = {
       ...formData,
       // S'assurer que la date est au format ISO 8601 (YYYY-MM-DD)
-      dateNaissance:
-        formData.dateNaissance instanceof Date
-          ? formData.dateNaissance.toISOString()
-          : formData.dateNaissance
-          ? new Date(formData.dateNaissance).toISOString()
-          : null,
-      dateAdmission:
-        formData.dateAdmission instanceof Date
-          ? formData.dateAdmission.toISOString()
-          : formData.dateAdmission
-          ? new Date(formData.dateAdmission).toISOString()
-          : null,
-      dateSortie:
-        formData.dateSortie instanceof Date
-          ? formData.dateSortie.toISOString()
-          : formData.dateSortie
-          ? new Date(formData.dateSortie).toISOString()
-          : null,
+      dateNaissance: formData.dateNaissance.toISOString(),
+      dateAdmission: formData.dateAdmission
+        ? formData.dateAdmission.toISOString()
+        : null,
+      dateSortie: formData.dateSortie
+        ? formData.dateSortie.toISOString()
+        : null,
     };
 
     setSubmitError(null);
 
     try {
-      // Utilisation du store Zustand au lieu d'un appel fetch direct
-      await createPatient(dataToSend);
+      // Utiliser le store pour mettre à jour le patient
+      await updatePatient(id, dataToSend);
 
-      // Redirection vers la liste des patients après création réussie
-      navigate("/patients");
+      toast({
+        title: "Succès",
+        description:
+          "Les informations du patient ont été mises à jour avec succès",
+        variant: "success",
+      });
+
+      // Redirection vers la page de détail du patient après modification réussie
+      navigate(`/patients/${id}`);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Erreur inconnue");
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour les informations du patient",
+        variant: "destructive",
+      });
     }
   };
 
+  // Afficher un écran de chargement pendant le chargement des données
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6 flex justify-center items-center h-screen">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-xl font-medium text-gray-700">
+            Chargement des informations du patient...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Afficher un message d'erreur si le chargement a échoué
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
+          <p className="font-bold">Erreur</p>
+          <p>{error}</p>
+        </div>
+        <Button
+          onClick={() => navigate("/patients")}
+          className="bg-blue-500 hover:bg-blue-600 text-white"
+        >
+          Retour à la liste des patients
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">Ajouter un nouveau patient</h1>
+      <h1 className="text-2xl font-bold mb-6">
+        Modifier les informations du patient
+      </h1>
 
       {submitError && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 mb-4 rounded">
@@ -195,11 +273,7 @@ const CreatePatientPage: React.FC = () => {
             id="dateNaissance"
             type="date"
             name="dateNaissance"
-            value={
-              formData.dateNaissance instanceof Date
-                ? formData.dateNaissance.toISOString().split("T")[0]
-                : new Date(formData.dateNaissance).toISOString().split("T")[0]
-            }
+            value={formData.dateNaissance.toISOString().split("T")[0]}
             onChange={handleChange}
             required
           />
@@ -295,14 +369,23 @@ const CreatePatientPage: React.FC = () => {
           >
             Groupe sanguin
           </label>
-          <input
+          <select
             className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             id="groupeSanguin"
-            type="text"
             name="groupeSanguin"
             value={formData.groupeSanguin || ""}
             onChange={handleChange}
-          />
+          >
+            <option value="">Non spécifié</option>
+            <option value="A+">A+</option>
+            <option value="A-">A-</option>
+            <option value="B+">B+</option>
+            <option value="B-">B-</option>
+            <option value="AB+">AB+</option>
+            <option value="AB-">AB-</option>
+            <option value="O+">O+</option>
+            <option value="O-">O-</option>
+          </select>
         </div>
 
         {/* Allergies */}
@@ -350,27 +433,31 @@ const CreatePatientPage: React.FC = () => {
             Date d'admission
           </label>
           <input
-            className={`shadow appearance-none border ${
-              errors.dateAdmission ? "border-red-500" : ""
-            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             id="dateAdmission"
             type="date"
             name="dateAdmission"
-            value={
-              formData.dateAdmission instanceof Date
-                ? formData.dateAdmission.toISOString().split("T")[0]
-                : formData.dateAdmission
-                ? new Date(formData.dateAdmission).toISOString().split("T")[0]
-                : ""
-            }
+            value={formData.dateAdmission?.toISOString().split("T")[0] || ""}
             onChange={handleChange}
-            required
           />
-          {errors.dateAdmission && (
-            <p className="text-red-500 text-xs italic">
-              {errors.dateAdmission}
-            </p>
-          )}
+        </div>
+
+        {/* Date de sortie */}
+        <div className="mb-4">
+          <label
+            className="block text-gray-700 text-sm font-bold mb-2"
+            htmlFor="dateSortie"
+          >
+            Date de sortie
+          </label>
+          <input
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            id="dateSortie"
+            type="date"
+            name="dateSortie"
+            value={formData.dateSortie?.toISOString().split("T")[0] || ""}
+            onChange={handleChange}
+          />
         </div>
 
         {/* Statut */}
@@ -395,26 +482,29 @@ const CreatePatientPage: React.FC = () => {
           </select>
         </div>
 
-        {/* Boutons */}
-        <div className="flex items-center justify-between">
-          <button
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+        {/* Boutons d'action */}
+        <div className="flex items-center justify-between mt-8">
+          <Button
             type="submit"
+            className="bg-blue-500 hover:bg-blue-700 text-white"
             disabled={isLoading}
           >
-            {isLoading ? "Enregistrement..." : "Enregistrer"}
-          </button>
-          <button
-            className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            {isLoading ? "Enregistrement..." : "Enregistrer les modifications"}
+          </Button>
+          <Button
             type="button"
-            onClick={() => navigate("/patients")}
+            variant="outline"
+            className="bg-gray-300 hover:bg-gray-400 text-gray-800"
+            onClick={() =>
+              id ? navigate(`/patients/${id}`) : navigate("/patients")
+            }
           >
             Annuler
-          </button>
+          </Button>
         </div>
       </form>
     </div>
   );
 };
 
-export default CreatePatientPage;
+export default EditPatientPage;

@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import ReservationsTab from "@/components/tabs/ReservationsTab";
 import { useLitStore } from "@/stores/lit-store";
-import { LitWithRelations } from "@/types/types";
 
 // Composant Card réutilisable
 const Card: React.FC<{

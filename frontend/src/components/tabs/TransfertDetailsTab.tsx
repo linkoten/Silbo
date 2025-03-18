@@ -1,41 +1,18 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { formatDate } from "../../utils/formatUtils";
-
-interface TransfertDetail {
-  id: string;
-  dateTransfert: string;
-  serviceDepartId: string;
-  serviceArriveeId: string;
-  etablissementDepartId: string;
-  etablissementArriveeId: string;
-  etablissementDepart?: {
-    id: string;
-    nom: string;
-  };
-  etablissementArrivee?: {
-    id: string;
-    nom: string;
-  };
-  serviceDepart?: {
-    id: string;
-    nom: string;
-  };
-  serviceArrivee?: {
-    id: string;
-    nom: string;
-  };
-}
+import { TransfertWithRelations } from "@/stores/transfert-store";
 
 interface TransfertDetailsTabProps {
-  transfert: TransfertDetail;
+  transfert: TransfertWithRelations;
 }
 
 const TransfertDetailsTab: React.FC<TransfertDetailsTabProps> = ({
   transfert,
 }) => {
   // Déterminer si le transfert est dans le passé ou le futur
-  const transfertDate = new Date(transfert.dateTransfert);
+  // Use date property instead of dateTransfert
+  const transfertDate = new Date(transfert.date);
   const now = new Date();
   const isTransfertPast = transfertDate < now;
   const transfertStatus = isTransfertPast ? "Effectué" : "Planifié";
@@ -217,7 +194,7 @@ const TransfertDetailsTab: React.FC<TransfertDetailsTabProps> = ({
               Date du transfert
             </dt>
             <dd className="mt-1 text-lg font-medium text-gray-900">
-              {formatDate(transfert.dateTransfert)}
+              {formatDate(transfert.date)}
             </dd>
           </div>
 

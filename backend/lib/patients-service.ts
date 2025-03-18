@@ -57,4 +57,96 @@ export class PatientService {
       };
     }
   }
+
+  async updatePatient(
+    id: string,
+    data: Partial<Patient>
+  ): Promise<ServiceResult<Patient>> {
+    try {
+      // Vérifiez d'abord si le patient existe
+      const patientExists = await prisma.patient.findUnique({
+        where: { id },
+      });
+
+      if (!patientExists) {
+        return {
+          success: false,
+          error: "Patient non trouvé",
+        };
+      }
+
+      // Mettez à jour le patient
+      const updatedPatient = await prisma.patient.update({
+        where: { id },
+        data,
+      });
+
+      return {
+        success: true,
+        data: updatedPatient,
+      };
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour du patient:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Erreur inconnue",
+      };
+    }
+  }
+
+  async getPatientById(id: string): Promise<ServiceResult<Patient>> {
+    try {
+      const patient = await prisma.patient.findUnique({
+        where: { id },
+      });
+
+      if (!patient) {
+        return {
+          success: false,
+          error: "Patient non trouvé",
+        };
+      }
+
+      return {
+        success: true,
+        data: patient,
+      };
+    } catch (error) {
+      console.error("Erreur lors de la récupération du patient:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Erreur inconnue",
+      };
+    }
+  }
+
+  async deletePatient(id: string): Promise<ServiceResult<void>> {
+    try {
+      // Vérifiez d'abord si le patient existe
+      const patientExists = await prisma.patient.findUnique({
+        where: { id },
+      });
+
+      if (!patientExists) {
+        return {
+          success: false,
+          error: "Patient non trouvé",
+        };
+      }
+
+      await prisma.patient.delete({
+        where: { id },
+      });
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      console.error("Erreur lors de la suppression du patient:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Erreur inconnue",
+      };
+    }
+  }
 }
