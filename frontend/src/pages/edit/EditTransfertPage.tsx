@@ -1,5 +1,5 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   transfertFormSchema,
   PatientFormValues,
@@ -29,14 +29,14 @@ interface ServiceWithEtablissement extends ServiceFormValues {
   };
 }
 
-const CreateTransfertPage: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const patientIdParam = searchParams.get("patientId");
-  const serviceDepartIdParam = searchParams.get("serviceDepartId");
+const EditTransfertPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [formData, setFormData] = useState<TransfertFormData>({
-    patientId: patientIdParam || "",
-    serviceDepartId: serviceDepartIdParam || "",
+    patientId: "",
+    serviceDepartId: "",
     serviceArriveeId: "",
     date: new Date(),
     motif: null,
@@ -49,8 +49,6 @@ const CreateTransfertPage: React.FC = () => {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const navigate = useNavigate();
-  const { toast } = useToast();
 
   // États pour les listes de données
   const [patients, setPatients] = useState<PatientFormValues[]>([]);
@@ -73,10 +71,20 @@ const CreateTransfertPage: React.FC = () => {
     setShowServiceDialog,
     setShowEtablissementDialog,
   } = useDialogStore();
-  const { createTransfert, isLoading } = useTransfertStore();
+  const {
+    transfertSelectionne,
+    isLoading,
+    error,
+    fetchTransfertDetails,
+    updateTransfert,
+  } = useTransfertStore();
 
   // Charger les données au chargement de la page
   useEffect(() => {
+    if (id) {
+      fetchTransfertDetails(id);
+    }
+
     const fetchPatients = async () => {
       try {
         const response = await fetch("http://localhost:3000/patients");
@@ -160,7 +168,28 @@ const CreateTransfertPage: React.FC = () => {
     fetchPatients();
     fetchServices();
     fetchEtablissements();
-  }, [toast]);
+  }, [id, fetchTransfertDetails, toast]);
+
+  // Mettre à jour le formulaire lorsque les détails du transfert sont chargés
+  useEffect(() => {
+    if (transfertSelectionne) {
+      setFormData({
+        patientId: transfertSelectionne.patientId || "",
+        serviceDepartId: transfertSelectionne.serviceDepartId || "",
+        serviceArriveeId: transfertSelectionne.serviceArriveeId || "",
+        date: transfertSelectionne.date
+          ? new Date(transfertSelectionne.date)
+          : new Date(),
+        motif: transfertSelectionne.motif || "",
+        statut: transfertSelectionne.statut || "Planifié",
+        autorisePar: transfertSelectionne.autorisePar || "",
+        realiseePar: transfertSelectionne.realiseePar || "",
+        etablissementDepartId: transfertSelectionne.etablissementDepartId || "",
+        etablissementArriveeId:
+          transfertSelectionne.etablissementArriveeId || "",
+      });
+    }
+  }, [transfertSelectionne]);
 
   // Filtrer les services d'arrivée lorsqu'un établissement départ est sélectionné
   useEffect(() => {
@@ -246,7 +275,7 @@ const CreateTransfertPage: React.FC = () => {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
 
-    if (!validateForm()) {
+    if (!validateForm() || !id) {
       return;
     }
 
@@ -267,21 +296,21 @@ const CreateTransfertPage: React.FC = () => {
         etablissementArriveeId: formData.etablissementArriveeId,
       };
 
-      await createTransfert(transfertData);
+      await updateTransfert(id, transfertData);
 
       toast({
         title: "Succès",
-        description: "Le transfert a été créé avec succès",
+        description: "Le transfert a été mis à jour avec succès",
         variant: "success",
       });
 
-      // Redirection vers la liste des transferts après création réussie
-      navigate("/transferts");
+      // Redirection vers la page de détail après mise à jour réussie
+      navigate(`/transferts/${id}`);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Erreur inconnue");
       toast({
         title: "Erreur",
-        description: "Impossible de créer le transfert",
+        description: "Impossible de mettre à jour le transfert",
         variant: "destructive",
       });
     }
@@ -298,15 +327,6 @@ const CreateTransfertPage: React.FC = () => {
 
   const handleServiceCreated = (newService: ServiceFormValues): void => {
     setServices((prevServices) => [...prevServices, newService]);
-
-    // Si c'est le premier service ajouté, le définir comme service de départ et d'arrivée
-    if (services.length === 0) {
-      setFormData((prevData) => ({
-        ...prevData,
-        serviceDepartId: newService.id as string,
-        serviceArriveeId: newService.id as string,
-      }));
-    }
   };
 
   const handleEtablissementCreated = (
@@ -318,9 +338,41 @@ const CreateTransfertPage: React.FC = () => {
     ]);
   };
 
+  // Afficher un écran de chargement pendant le chargement des données
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6 flex justify-center items-center h-screen">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-xl font-medium text-gray-700">
+            Chargement des informations du transfert...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Afficher un message d'erreur si le chargement a échoué
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
+          <p className="font-bold">Erreur</p>
+          <p>{error}</p>
+        </div>
+        <Button
+          onClick={() => navigate("/transferts")}
+          className="bg-blue-500 hover:bg-blue-600 text-white"
+        >
+          Retour à la liste des transferts
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">Créer un nouveau transfert</h1>
+      <h1 className="text-2xl font-bold mb-6">Modifier le transfert</h1>
 
       {submitError && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 mb-4 rounded">
@@ -672,13 +724,17 @@ const CreateTransfertPage: React.FC = () => {
             className="bg-blue-500 hover:bg-blue-700 text-white"
             disabled={isLoading}
           >
-            {isLoading ? "Création en cours..." : "Créer le transfert"}
+            {isLoading
+              ? "Modification en cours..."
+              : "Mettre à jour le transfert"}
           </Button>
           <Button
             type="button"
             variant="outline"
             className="bg-gray-500 hover:bg-gray-700 text-white"
-            onClick={() => navigate("/transferts")}
+            onClick={() =>
+              id ? navigate(`/transferts/${id}`) : navigate("/transferts")
+            }
           >
             Annuler
           </Button>
@@ -695,4 +751,4 @@ const CreateTransfertPage: React.FC = () => {
   );
 };
 
-export default CreateTransfertPage;
+export default EditTransfertPage;

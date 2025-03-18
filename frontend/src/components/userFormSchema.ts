@@ -94,6 +94,8 @@ export const transfertFormSchema = z.object({
   statut: z.string().nullable().default("Planifié"),
   autorisePar: z.string().nullable(),
   realiseePar: z.string().nullable(),
+  etablissementDepartId: z.string().nullable(),
+  etablissementArriveeId: z.string().nullable(),
 });
 
 export type TransfertFormValues = z.infer<typeof transfertFormSchema>;

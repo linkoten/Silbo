@@ -83,19 +83,21 @@ model Service {
 }
 
 model Transfert {
-  id               String   @id @default(auto()) @map("_id") @db.ObjectId
-  serviceDepartId  String   @db.ObjectId
-  serviceDepart    Service  @relation("ServiceDepart", fields: [serviceDepartId], references: [id])
-  serviceArriveeId String   @db.ObjectId
-  serviceArrivee   Service  @relation("ServiceArrivee", fields: [serviceArriveeId], references: [id])
-  patientId        String
-  motif            String?
-  date             DateTime @default(now())
-  statut           String?  @default("Planifié")
-  autorisePar      String?
-  realiseePar      String?
-  dateCreation     DateTime @default(now())
-  dateMAJ          DateTime @updatedAt
+  id                     String   @id @default(auto()) @map("_id") @db.ObjectId
+  serviceDepartId        String   @db.ObjectId
+  serviceDepart          Service  @relation("ServiceDepart", fields: [serviceDepartId], references: [id])
+  serviceArriveeId       String   @db.ObjectId
+  serviceArrivee         Service  @relation("ServiceArrivee", fields: [serviceArriveeId], references: [id])
+  patientId              String
+  motif                  String?
+  date                   DateTime @default(now())
+  statut                 String?  @default("Planifié")
+  autorisePar            String?
+  realiseePar            String?
+  dateCreation           DateTime @default(now())
+  dateMAJ                DateTime @updatedAt
+  etablissementDepartId  String?
+  etablissementArriveeId String?
 
   @@map("transferts")
 }
