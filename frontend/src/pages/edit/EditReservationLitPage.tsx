@@ -1,5 +1,5 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   reservationLitFormSchema,
   PatientFormValues,
@@ -22,7 +22,11 @@ import EtablissementDialog from "@/components/dialogs/EtablissementDialog";
 // Types pour le formulaire
 type ReservationLitFormData = z.infer<typeof reservationLitFormSchema>;
 
-const CreateReservationLitPage: React.FC = () => {
+const EditReservationLitPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
   const [formData, setFormData] = useState<ReservationLitFormData>({
     patientId: null,
     litId: null,
@@ -33,8 +37,6 @@ const CreateReservationLitPage: React.FC = () => {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const navigate = useNavigate();
-  const { toast } = useToast();
 
   // États pour les listes de données
   const [patients, setPatients] = useState<PatientFormValues[]>([]);
@@ -47,10 +49,22 @@ const CreateReservationLitPage: React.FC = () => {
   // Accès aux stores
   const { setShowPatientDialog, setShowLitDialog, setShowEtablissementDialog } =
     useDialogStore();
-  const { createReservationLit, isLoading } = useReservationLitStore();
+  const {
+    reservationLitSelectionnee,
+    isLoading,
+    error,
+    fetchReservationLitDetails,
+    updateReservationLit,
+  } = useReservationLitStore();
 
   // Charger les données au chargement de la page
   useEffect(() => {
+    // Charger les détails de la réservation
+    if (id) {
+      fetchReservationLitDetails(id);
+    }
+
+    // Charger les listes de données pour les sélections
     const fetchPatients = async () => {
       try {
         const response = await fetch("http://localhost:3000/patients");
@@ -122,7 +136,21 @@ const CreateReservationLitPage: React.FC = () => {
     fetchLits();
     fetchEtablissements();
     fetchServices();
-  }, [toast]);
+  }, [id, fetchReservationLitDetails, toast]);
+
+  // Mettre à jour le formulaire lorsque les détails de la réservation sont chargés
+  useEffect(() => {
+    if (reservationLitSelectionnee) {
+      setFormData({
+        patientId: reservationLitSelectionnee.patientId,
+        litId: reservationLitSelectionnee.litId,
+        dateArrivee: new Date(reservationLitSelectionnee.dateArrivee),
+        dateDepart: new Date(reservationLitSelectionnee.dateDepart),
+        etablissementDestinationId:
+          reservationLitSelectionnee.etablissementDestinationId || null,
+      });
+    }
+  }, [reservationLitSelectionnee]);
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -137,7 +165,7 @@ const CreateReservationLitPage: React.FC = () => {
     } else {
       setFormData({
         ...formData,
-        [name]: value,
+        [name]: value === "" ? null : value,
       });
     }
   };
@@ -164,7 +192,7 @@ const CreateReservationLitPage: React.FC = () => {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
 
-    if (!validateForm()) {
+    if (!validateForm() || !id) {
       return;
     }
 
@@ -182,28 +210,29 @@ const CreateReservationLitPage: React.FC = () => {
         return;
       }
 
-      // Utiliser le store pour créer la réservation
-      await createReservationLit({
+      // Utiliser le store pour mettre à jour la réservation
+      await updateReservationLit(id, {
         patientId: formData.patientId,
         litId: formData.litId,
         dateArrivee: formData.dateArrivee.toISOString(),
         dateDepart: formData.dateDepart.toISOString(),
-        etablissementDestinationId: formData.etablissementDestinationId || "",
+        etablissementDestinationId:
+          formData.etablissementDestinationId || undefined,
       });
 
       toast({
         title: "Succès",
-        description: "La réservation a été créée avec succès",
+        description: "La réservation a été mise à jour avec succès",
         variant: "success",
       });
 
-      // Redirection vers la liste des réservations après création réussie
-      navigate("/reservationsLit");
+      // Redirection vers la page de détail de la réservation
+      navigate(`/reservationsLit/${id}`);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Erreur inconnue");
       toast({
         title: "Erreur",
-        description: "Erreur lors de la création de la réservation",
+        description: "Erreur lors de la mise à jour de la réservation",
         variant: "destructive",
       });
     }
@@ -220,7 +249,10 @@ const CreateReservationLitPage: React.FC = () => {
 
   const handleLitCreated = (newLit: LitFormValues) => {
     setLits((prevLits) => [...prevLits, newLit]);
-    setFormData((prevData) => ({ ...prevData, litId: newLit.id as string }));
+    setFormData((prevData) => ({
+      ...prevData,
+      litId: newLit.id as string,
+    }));
   };
 
   const handleEtablissementCreated = (
@@ -236,9 +268,43 @@ const CreateReservationLitPage: React.FC = () => {
     }));
   };
 
+  // Afficher un écran de chargement pendant le chargement des données
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6 flex justify-center items-center h-screen">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-xl font-medium text-gray-700">
+            Chargement des informations de la réservation...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Afficher un message d'erreur si le chargement a échoué
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
+          <p className="font-bold">Erreur</p>
+          <p>{error}</p>
+        </div>
+        <Button
+          onClick={() => navigate("/reservationsLit")}
+          className="bg-blue-500 hover:bg-blue-600 text-white"
+        >
+          Retour à la liste des réservations
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">Créer une réservation de lit</h1>
+      <h1 className="text-2xl font-bold mb-6">
+        Modifier la réservation de lit
+      </h1>
 
       {submitError && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 mb-4 rounded">
@@ -423,13 +489,17 @@ const CreateReservationLitPage: React.FC = () => {
             className="bg-blue-500 hover:bg-blue-700"
             disabled={isLoading}
           >
-            {isLoading ? "Enregistrement..." : "Enregistrer"}
+            {isLoading ? "Enregistrement..." : "Mettre à jour"}
           </Button>
           <Button
             type="button"
             variant="outline"
             className="bg-gray-500 hover:bg-gray-700 text-white"
-            onClick={() => navigate("/reservationsLit")}
+            onClick={() =>
+              id
+                ? navigate(`/reservationsLit/${id}`)
+                : navigate("/reservationsLit")
+            }
           >
             Annuler
           </Button>
@@ -446,4 +516,4 @@ const CreateReservationLitPage: React.FC = () => {
   );
 };
 
-export default CreateReservationLitPage;
+export default EditReservationLitPage;
