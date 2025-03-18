@@ -32,6 +32,12 @@ import TransfertDetailPage from "./pages/dynamic/TransfertDetailPage.js";
 import EditPriseEnChargePage from "./pages/edit/EditPriseEnChargePage.js";
 import EditPersonnelPage from "./pages/edit/EditPersonnelPage.js";
 import EditPatientPage from "./pages/edit/EditPatientPage.js";
+import EditEtablissementPage from "./pages/edit/EditEtablissementPage.js";
+import EditLitPage from "./pages/edit/EditLitPage.js";
+import EditMaterielPage from "./pages/edit/EditMaterielPage.js";
+import EditReservationLitPage from "./pages/edit/EditReservationLitPage.js";
+import EditServicePage from "./pages/edit/EditServicePage.js";
+import EditTransfertPage from "./pages/edit/EditTransfertPage.js";
 
 function App() {
   return (
@@ -89,6 +95,16 @@ function App() {
                 element={<CreateEtablissementPage />}
               />
               <Route
+                path="/etablissements/edit/:id"
+                element={<EditEtablissementPage />}
+              />
+              <Route path="/lits/edit/:id" element={<EditLitPage />} />
+              <Route
+                path="/materiels/edit/:id"
+                element={<EditMaterielPage />}
+              />
+              <Route path="/patients/edit/:id" element={<EditPatientPage />} />
+              <Route
                 path="/prisesEnCharge/edit/:id"
                 element={<EditPriseEnChargePage />}
               />
@@ -96,6 +112,17 @@ function App() {
               <Route
                 path="/personnels/edit/:id"
                 element={<EditPersonnelPage />}
+              />
+
+              <Route
+                path="/reservationsLit/edit/:id"
+                element={<EditReservationLitPage />}
+              />
+
+              <Route path="/services/edit/:id" element={<EditServicePage />} />
+              <Route
+                path="/transferts/edit/:id"
+                element={<EditTransfertPage />}
               />
 
               <Route path="/prisesEnCharge" element={<PrisesEnChargePage />} />
