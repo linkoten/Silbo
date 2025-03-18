@@ -1,12 +1,18 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { useToast } from "@/components/ui/use-toast";
-import { useLitStore } from "@/stores/lit-store";
+"use client";
 
-interface Service {
-  id: string;
-  nom: string;
-  etablissementId: string;
+import type React from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  litFormSchema,
+  type ServiceFormValues,
+} from "@/components/userFormSchema";
+import { useLitStore } from "@/stores/lit-store";
+import { useDialogStore } from "@/stores/dialog-store";
+import { GenericForm, type FormSection } from "@/components/Generic-Form";
+import ServiceDialog from "@/components/dialogs/ServiceDialog";
+
+interface ServiceWithEtablissement extends ServiceFormValues {
   etablissement?: {
     nom: string;
   };
@@ -14,22 +20,11 @@ interface Service {
 
 const CreateLitPage: React.FC = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { createLit } = useLitStore();
+  const { setShowServiceDialog } = useDialogStore();
 
-  const [formData, setFormData] = useState({
-    numeroLit: "",
-    chambre: "",
-    etage: "",
-    type: "",
-    statut: "disponible",
-    serviceId: "",
-  });
-
-  const [services, setServices] = useState<Service[]>([]);
-  const [loadingServices, setLoadingServices] = useState<boolean>(true);
-  const [submitting, setSubmitting] = useState<boolean>(false);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [services, setServices] = useState<ServiceWithEtablissement[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchServices = async () => {
@@ -41,7 +36,7 @@ const CreateLitPage: React.FC = () => {
 
         // Enrichir les services avec les informations d'établissement
         const servicesEnriched = await Promise.all(
-          servicesData.map(async (service: Service) => {
+          servicesData.map(async (service: ServiceWithEtablissement) => {
             try {
               const etablissementResponse = await fetch(
                 `http://localhost:3000/etablissements/${service.etablissementId}`
@@ -64,229 +59,125 @@ const CreateLitPage: React.FC = () => {
         setServices(servicesEnriched);
       } catch (err) {
         console.error("Erreur lors de la récupération des services:", err);
-        toast({
-          title: "Erreur",
-          description: "Impossible de charger les services",
-          variant: "destructive",
-        });
-      } finally {
-        setLoadingServices(false);
       }
     };
 
     fetchServices();
-  }, [toast]);
+  }, []);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+  const initialData = {
+    numeroLit: "",
+    chambre: "",
+    etage: "",
+    type: "",
+    statut: "disponible",
+    serviceId: "",
+    patientId: "",
   };
 
-  const validateForm = () => {
-    if (!formData.numeroLit) {
-      setFormError("Le numéro de lit est requis");
-      return false;
-    }
-
-    if (!formData.serviceId) {
-      setFormError("Veuillez sélectionner un service");
-      return false;
-    }
-
-    setFormError(null);
-    return true;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateForm()) return;
-
-    setSubmitting(true);
-
+  const handleSubmit = async (data: typeof initialData) => {
+    setIsSubmitting(true);
     try {
-      // Utilisation du store Zustand au lieu d'un appel fetch direct
-      await createLit(formData);
-
-      toast({
-        title: "Succès",
-        description: "Le lit a été créé avec succès",
-        variant: "success",
-      });
-
+      await createLit(data);
       navigate("/lits");
-    } catch (err) {
-      console.error("Erreur lors de la création du lit:", err);
-      setFormError(
-        err instanceof Error ? err.message : "Une erreur s'est produite"
-      );
-      toast({
-        title: "Erreur",
-        description: "Impossible de créer le lit",
-        variant: "destructive",
-      });
+    } catch (error) {
+      throw error;
     } finally {
-      setSubmitting(false);
+      setIsSubmitting(false);
     }
   };
+
+  const handleServiceCreated = (newService: ServiceFormValues) => {
+    setServices((prevServices) => [
+      ...prevServices,
+      newService as ServiceWithEtablissement,
+    ]);
+  };
+
+  const formSections: FormSection[] = [
+    {
+      fields: [
+        {
+          name: "numeroLit",
+          label: "Numéro de lit",
+          type: "text",
+          required: true,
+          placeholder: "Ex: 101-A",
+        },
+        {
+          name: "chambre",
+          label: "Chambre",
+          type: "text",
+          placeholder: "Ex: 101",
+        },
+        {
+          name: "etage",
+          label: "Étage",
+          type: "text",
+          placeholder: "Ex: 1er",
+        },
+      ],
+    },
+    {
+      fields: [
+        {
+          name: "type",
+          label: "Type de lit",
+          type: "select",
+          options: [
+            { value: "", label: "Sélectionner un type" },
+            { value: "Standard", label: "Standard" },
+            { value: "Médical", label: "Médical" },
+            { value: "Soins intensifs", label: "Soins intensifs" },
+            { value: "Pédiatrique", label: "Pédiatrique" },
+            { value: "Bariatrique", label: "Bariatrique" },
+          ],
+        },
+        {
+          name: "statut",
+          label: "Statut",
+          type: "select",
+          options: [
+            { value: "disponible", label: "Disponible" },
+            { value: "occupé", label: "Occupé" },
+            { value: "maintenance", label: "En maintenance" },
+            { value: "réservé", label: "Réservé" },
+          ],
+        },
+        {
+          name: "serviceId",
+          label: "Service",
+          type: "select",
+          required: true,
+          options: services.map((service) => ({
+            value: service.id as string,
+            label: `${service.nom} ${
+              service.etablissement ? `(${service.etablissement.nom})` : ""
+            }`,
+          })),
+          addButton: {
+            label: "+ Ajouter un service",
+            onClick: () => setShowServiceDialog(true),
+          },
+        },
+      ],
+    },
+  ];
 
   return (
-    <div className="container mx-auto p-6 max-w-2xl">
-      <h1 className="text-2xl font-bold mb-6">Créer un nouveau lit</h1>
-
-      {formError && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6">
-          <p>{formError}</p>
-        </div>
-      )}
-
-      <form
+    <>
+      <GenericForm
+        title="Créer un nouveau lit"
+        initialData={initialData}
+        sections={formSections}
+        schema={litFormSchema}
         onSubmit={handleSubmit}
-        className="bg-white shadow-md rounded-lg p-6"
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Numéro de lit */}
-          <div className="col-span-1">
-            <label className="block text-gray-700 font-medium mb-2">
-              Numéro de lit *
-            </label>
-            <input
-              type="text"
-              name="numeroLit"
-              value={formData.numeroLit}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Ex: 101-A"
-              required
-            />
-          </div>
+        isSubmitting={isSubmitting}
+        cancelPath="/lits"
+      />
 
-          {/* Chambre */}
-          <div className="col-span-1">
-            <label className="block text-gray-700 font-medium mb-2">
-              Chambre
-            </label>
-            <input
-              type="text"
-              name="chambre"
-              value={formData.chambre}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Ex: 101"
-            />
-          </div>
-
-          {/* Étage */}
-          <div className="col-span-1">
-            <label className="block text-gray-700 font-medium mb-2">
-              Étage
-            </label>
-            <input
-              type="text"
-              name="etage"
-              value={formData.etage}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Ex: 1er"
-            />
-          </div>
-
-          {/* Type de lit */}
-          <div className="col-span-1">
-            <label className="block text-gray-700 font-medium mb-2">
-              Type de lit
-            </label>
-            <select
-              name="type"
-              value={formData.type}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Sélectionner un type</option>
-              <option value="Standard">Standard</option>
-              <option value="Médical">Médical</option>
-              <option value="Soins intensifs">Soins intensifs</option>
-              <option value="Pédiatrique">Pédiatrique</option>
-              <option value="Bariatrique">Bariatrique</option>
-            </select>
-          </div>
-
-          {/* Statut */}
-          <div className="col-span-1">
-            <label className="block text-gray-700 font-medium mb-2">
-              Statut
-            </label>
-            <select
-              name="statut"
-              value={formData.statut}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="disponible">Disponible</option>
-              <option value="occupé">Occupé</option>
-              <option value="maintenance">En maintenance</option>
-              <option value="réservé">Réservé</option>
-            </select>
-          </div>
-
-          {/* Service */}
-          <div className="col-span-2">
-            <label className="block text-gray-700 font-medium mb-2">
-              Service *
-            </label>
-            {loadingServices ? (
-              <div className="flex items-center space-x-2">
-                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-gray-500">
-                  Chargement des services...
-                </span>
-              </div>
-            ) : (
-              <select
-                name="serviceId"
-                value={formData.serviceId}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              >
-                <option value="">Sélectionner un service</option>
-                {services.map((service) => (
-                  <option key={service.id} value={service.id}>
-                    {service.nom}{" "}
-                    {service.etablissement && `(${service.etablissement.nom})`}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-        </div>
-
-        <div className="flex justify-between mt-8">
-          <Link
-            to="/lits"
-            className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded"
-          >
-            Annuler
-          </Link>
-          <button
-            type="submit"
-            className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded flex items-center disabled:bg-blue-300"
-            disabled={submitting || loadingServices}
-          >
-            {submitting ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                Création en cours...
-              </>
-            ) : (
-              "Créer le lit"
-            )}
-          </button>
-        </div>
-      </form>
-    </div>
+      <ServiceDialog onServiceCreated={handleServiceCreated} />
+    </>
   );
 };
 

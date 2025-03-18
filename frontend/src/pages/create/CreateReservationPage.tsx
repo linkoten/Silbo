@@ -1,38 +1,23 @@
-import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
+"use client";
+
+import type React from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   reservationLitFormSchema,
-  PatientFormValues,
-  LitFormValues,
-  EtablissementFormValues,
-} from "../../components/userFormSchema";
-import { z } from "zod";
-
-// Import des composants UI de base
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
-
-// Import du store Zustand et des composants Dialog
+  type PatientFormValues,
+  type LitFormValues,
+  type EtablissementFormValues,
+} from "@/components/userFormSchema";
 import { useDialogStore } from "@/stores/dialog-store";
 import { useReservationLitStore } from "@/stores/reservation-lit-store";
+import { GenericForm, type FormSection } from "@/components/Generic-Form";
 import PatientDialog from "@/components/dialogs/PatientDialog";
 import LitDialog from "@/components/dialogs/LitDialog";
 import EtablissementDialog from "@/components/dialogs/EtablissementDialog";
-
-// Types pour le formulaire
-type ReservationLitFormData = z.infer<typeof reservationLitFormSchema>;
+import { useToast } from "@/components/ui/use-toast";
 
 const CreateReservationLitPage: React.FC = () => {
-  const [formData, setFormData] = useState<ReservationLitFormData>({
-    patientId: null,
-    litId: null,
-    dateArrivee: new Date(),
-    dateDepart: new Date(new Date().setDate(new Date().getDate() + 1)), // Par défaut : jour suivant
-    etablissementDestinationId: null,
-  });
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [submitError, setSubmitError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -48,6 +33,14 @@ const CreateReservationLitPage: React.FC = () => {
   const { setShowPatientDialog, setShowLitDialog, setShowEtablissementDialog } =
     useDialogStore();
   const { createReservationLit, isLoading } = useReservationLitStore();
+
+  const initialData = {
+    patientId: "",
+    litId: "",
+    dateArrivee: new Date(),
+    dateDepart: new Date(new Date().setDate(new Date().getDate() + 1)), // Par défaut : jour suivant
+    etablissementDestinationId: "",
+  };
 
   // Charger les données au chargement de la page
   useEffect(() => {
@@ -124,103 +117,36 @@ const CreateReservationLitPage: React.FC = () => {
     fetchServices();
   }, [toast]);
 
-  const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ): void => {
-    const { name, value, type } = e.target;
-
-    if (type === "date") {
-      setFormData({
-        ...formData,
-        [name]: value ? new Date(value) : new Date(),
+  const handleSubmit = async (data: typeof initialData) => {
+    // Vérifier que les IDs requis ne sont pas null avant d'envoyer
+    if (!data.patientId || !data.litId) {
+      toast({
+        title: "Erreur de validation",
+        description: "Veuillez sélectionner un patient et un lit",
+        variant: "destructive",
       });
-    } else {
-      setFormData({
-        ...formData,
-        [name]: value,
-      });
-    }
-  };
-
-  const validateForm = (): boolean => {
-    try {
-      reservationLitFormSchema.parse(formData);
-      setErrors({});
-      return true;
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        const formattedErrors: Record<string, string> = {};
-        error.errors.forEach((err) => {
-          if (err.path.length > 0) {
-            formattedErrors[err.path[0].toString()] = err.message;
-          }
-        });
-        setErrors(formattedErrors);
-      }
-      return false;
-    }
-  };
-
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
-    e.preventDefault();
-
-    if (!validateForm()) {
       return;
     }
 
-    setSubmitError(null);
+    // Utiliser le store pour créer la réservation
+    await createReservationLit({
+      patientId: data.patientId,
+      litId: data.litId,
+      dateArrivee: data.dateArrivee.toISOString(),
+      dateDepart: data.dateDepart.toISOString(),
+      etablissementDestinationId: data.etablissementDestinationId || "",
+    });
 
-    try {
-      // Vérifier que les IDs requis ne sont pas null avant d'envoyer
-      if (!formData.patientId || !formData.litId) {
-        setSubmitError("Patient et lit sont obligatoires");
-        toast({
-          title: "Erreur de validation",
-          description: "Veuillez sélectionner un patient et un lit",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Utiliser le store pour créer la réservation
-      await createReservationLit({
-        patientId: formData.patientId,
-        litId: formData.litId,
-        dateArrivee: formData.dateArrivee.toISOString(),
-        dateDepart: formData.dateDepart.toISOString(),
-        etablissementDestinationId: formData.etablissementDestinationId || "",
-      });
-
-      toast({
-        title: "Succès",
-        description: "La réservation a été créée avec succès",
-        variant: "success",
-      });
-
-      // Redirection vers la liste des réservations après création réussie
-      navigate("/reservationsLit");
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Erreur inconnue");
-      toast({
-        title: "Erreur",
-        description: "Erreur lors de la création de la réservation",
-        variant: "destructive",
-      });
-    }
+    navigate("/reservationsLit");
   };
 
   // Callbacks pour les créations d'entités
   const handlePatientCreated = (newPatient: PatientFormValues) => {
     setPatients((prevPatients) => [...prevPatients, newPatient]);
-    setFormData((prevData) => ({
-      ...prevData,
-      patientId: newPatient.id as string,
-    }));
   };
 
   const handleLitCreated = (newLit: LitFormValues) => {
     setLits((prevLits) => [...prevLits, newLit]);
-    setFormData((prevData) => ({ ...prevData, litId: newLit.id as string }));
   };
 
   const handleEtablissementCreated = (
@@ -230,219 +156,92 @@ const CreateReservationLitPage: React.FC = () => {
       ...prevEtablissements,
       newEtablissement,
     ]);
-    setFormData((prevData) => ({
-      ...prevData,
-      etablissementDestinationId: newEtablissement.id as string,
-    }));
   };
 
+  const formSections: FormSection[] = [
+    {
+      fields: [
+        {
+          name: "patientId",
+          label: "Patient",
+          type: "select",
+          required: true,
+          options: patients.map((patient) => ({
+            value: patient.id as string,
+            label: `${patient.nom} ${patient.prenom}`,
+          })),
+          addButton: {
+            label: "+ Ajouter un patient",
+            onClick: () => setShowPatientDialog(true),
+          },
+        },
+        {
+          name: "litId",
+          label: "Lit",
+          type: "select",
+          required: true,
+          options: lits.map((lit) => ({
+            value: lit.id as string,
+            label: `${lit.numeroLit} ${
+              lit.chambre ? `- Chambre ${lit.chambre}` : ""
+            }`,
+          })),
+          addButton: {
+            label: "+ Ajouter un lit",
+            onClick: () => setShowLitDialog(true),
+          },
+        },
+      ],
+    },
+    {
+      fields: [
+        {
+          name: "dateArrivee",
+          label: "Date d'arrivée",
+          type: "date",
+          required: true,
+        },
+        {
+          name: "dateDepart",
+          label: "Date de départ",
+          type: "date",
+          required: true,
+        },
+        {
+          name: "etablissementDestinationId",
+          label: "Établissement de destination (optionnel)",
+          type: "select",
+          options: etablissements.map((etablissement) => ({
+            value: etablissement.id as string,
+            label: etablissement.nom,
+          })),
+          addButton: {
+            label: "+ Ajouter un établissement",
+            onClick: () => setShowEtablissementDialog(true),
+          },
+        },
+      ],
+    },
+  ];
+
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">Créer une réservation de lit</h1>
-
-      {submitError && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 mb-4 rounded">
-          {submitError}
-        </div>
-      )}
-
-      <form
+    <>
+      <GenericForm
+        title="Créer une réservation de lit"
+        initialData={initialData}
+        sections={formSections}
+        schema={reservationLitFormSchema}
         onSubmit={handleSubmit}
-        className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4"
-      >
-        {/* PatientId - Dropdown */}
-        <div className="mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <label
-              className="block text-gray-700 text-sm font-bold"
-              htmlFor="patientId"
-            >
-              Patient
-            </label>
-            <button
-              type="button"
-              className="text-blue-500 hover:text-blue-700 text-sm"
-              onClick={() => setShowPatientDialog(true)}
-            >
-              + Ajouter un patient
-            </button>
-          </div>
-          <select
-            className={`shadow appearance-none border ${
-              errors.patientId ? "border-red-500" : ""
-            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
-            id="patientId"
-            name="patientId"
-            value={formData.patientId ?? ""}
-            onChange={handleChange}
-            required
-          >
-            <option value="">Sélectionnez un patient</option>
-            {patients.map((patient) => (
-              <option key={patient.id} value={patient.id}>
-                {patient.nom} {patient.prenom}
-              </option>
-            ))}
-          </select>
-          {errors.patientId && (
-            <p className="text-red-500 text-xs italic">{errors.patientId}</p>
-          )}
-        </div>
+        isSubmitting={isLoading}
+        cancelPath="/reservationsLit"
+      />
 
-        {/* LitId - Dropdown */}
-        <div className="mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <label
-              className="block text-gray-700 text-sm font-bold"
-              htmlFor="litId"
-            >
-              Lit
-            </label>
-            <button
-              type="button"
-              className="text-blue-500 hover:text-blue-700 text-sm"
-              onClick={() => setShowLitDialog(true)}
-            >
-              + Ajouter un lit
-            </button>
-          </div>
-          <select
-            className={`shadow appearance-none border ${
-              errors.litId ? "border-red-500" : ""
-            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
-            id="litId"
-            name="litId"
-            value={formData.litId ?? ""}
-            onChange={handleChange}
-            required
-          >
-            <option value="">Sélectionnez un lit</option>
-            {lits.map((lit) => (
-              <option key={lit.id} value={lit.id}>
-                {lit.numeroLit} {lit.chambre ? `- Chambre ${lit.chambre}` : ""}
-              </option>
-            ))}
-          </select>
-          {errors.litId && (
-            <p className="text-red-500 text-xs italic">{errors.litId}</p>
-          )}
-        </div>
-
-        {/* DateArrivee */}
-        <div className="mb-4">
-          <label
-            className="block text-gray-700 text-sm font-bold mb-2"
-            htmlFor="dateArrivee"
-          >
-            Date d'arrivée
-          </label>
-          <input
-            className={`shadow appearance-none border ${
-              errors.dateArrivee ? "border-red-500" : ""
-            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
-            id="dateArrivee"
-            type="date"
-            name="dateArrivee"
-            value={formData.dateArrivee.toISOString().split("T")[0]}
-            onChange={handleChange}
-            required
-          />
-          {errors.dateArrivee && (
-            <p className="text-red-500 text-xs italic">{errors.dateArrivee}</p>
-          )}
-        </div>
-
-        {/* DateDepart */}
-        <div className="mb-4">
-          <label
-            className="block text-gray-700 text-sm font-bold mb-2"
-            htmlFor="dateDepart"
-          >
-            Date de départ
-          </label>
-          <input
-            className={`shadow appearance-none border ${
-              errors.dateDepart ? "border-red-500" : ""
-            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
-            id="dateDepart"
-            type="date"
-            name="dateDepart"
-            value={formData.dateDepart.toISOString().split("T")[0]}
-            onChange={handleChange}
-            required
-          />
-          {errors.dateDepart && (
-            <p className="text-red-500 text-xs italic">{errors.dateDepart}</p>
-          )}
-        </div>
-
-        {/* EtablissementDestinationId - Dropdown (optionnel) */}
-        <div className="mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <label
-              className="block text-gray-700 text-sm font-bold"
-              htmlFor="etablissementDestinationId"
-            >
-              Établissement de destination (optionnel)
-            </label>
-            <button
-              type="button"
-              className="text-blue-500 hover:text-blue-700 text-sm"
-              onClick={() => setShowEtablissementDialog(true)}
-            >
-              + Ajouter un établissement
-            </button>
-          </div>
-          <select
-            className={`shadow appearance-none border ${
-              errors.etablissementDestinationId ? "border-red-500" : ""
-            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
-            id="etablissementDestinationId"
-            name="etablissementDestinationId"
-            value={formData.etablissementDestinationId || ""}
-            onChange={handleChange}
-          >
-            <option value="">Aucun établissement de destination</option>
-            {etablissements.map((etablissement) => (
-              <option key={etablissement.id} value={etablissement.id}>
-                {etablissement.nom}
-              </option>
-            ))}
-          </select>
-          {errors.etablissementDestinationId && (
-            <p className="text-red-500 text-xs italic">
-              {errors.etablissementDestinationId}
-            </p>
-          )}
-        </div>
-
-        {/* Boutons */}
-        <div className="flex items-center justify-between">
-          <Button
-            type="submit"
-            className="bg-blue-500 hover:bg-blue-700"
-            disabled={isLoading}
-          >
-            {isLoading ? "Enregistrement..." : "Enregistrer"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="bg-gray-500 hover:bg-gray-700 text-white"
-            onClick={() => navigate("/reservationsLit")}
-          >
-            Annuler
-          </Button>
-        </div>
-      </form>
-
-      {/* Intégration des composants Dialog avec callbacks */}
       <PatientDialog onPatientCreated={handlePatientCreated} />
       <LitDialog onLitCreated={handleLitCreated} services={services} />
       <EtablissementDialog
         onEtablissementCreated={handleEtablissementCreated}
       />
-    </div>
+    </>
   );
 };
 

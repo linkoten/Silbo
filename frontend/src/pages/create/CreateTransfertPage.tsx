@@ -1,26 +1,21 @@
-import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
+"use client";
+
+import type React from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   transfertFormSchema,
-  PatientFormValues,
-  ServiceFormValues,
-  EtablissementFormValues,
+  type PatientFormValues,
+  type ServiceFormValues,
+  type EtablissementFormValues,
 } from "@/components/userFormSchema";
-import { z } from "zod";
-
-// Import des composants UI
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
-
-// Import des stores Zustand
 import { useDialogStore } from "@/stores/dialog-store";
 import { useTransfertStore } from "@/stores/transfert-store";
+import { GenericForm, type FormSection } from "@/components/Generic-Form";
 import PatientDialog from "@/components/dialogs/PatientDialog";
 import ServiceDialog from "@/components/dialogs/ServiceDialog";
 import EtablissementDialog from "@/components/dialogs/EtablissementDialog";
-
-// Types pour le formulaire
-type TransfertFormData = z.infer<typeof transfertFormSchema>;
+import { useToast } from "@/components/ui/use-toast";
 
 // Extend ServiceFormValues to include etablissement info for display purposes
 interface ServiceWithEtablissement extends ServiceFormValues {
@@ -33,22 +28,6 @@ const CreateTransfertPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const patientIdParam = searchParams.get("patientId");
   const serviceDepartIdParam = searchParams.get("serviceDepartId");
-
-  const [formData, setFormData] = useState<TransfertFormData>({
-    patientId: patientIdParam || "",
-    serviceDepartId: serviceDepartIdParam || "",
-    serviceArriveeId: "",
-    date: new Date(),
-    motif: null,
-    statut: "Planifié",
-    autorisePar: null,
-    realiseePar: null,
-    etablissementDepartId: null,
-    etablissementArriveeId: null,
-  });
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [submitError, setSubmitError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -74,6 +53,19 @@ const CreateTransfertPage: React.FC = () => {
     setShowEtablissementDialog,
   } = useDialogStore();
   const { createTransfert, isLoading } = useTransfertStore();
+
+  const initialData = {
+    patientId: patientIdParam || "",
+    serviceDepartId: serviceDepartIdParam || "",
+    serviceArriveeId: "",
+    date: new Date(),
+    motif: "",
+    statut: "Planifié",
+    autorisePar: "",
+    realiseePar: "",
+    etablissementDepartId: "",
+    etablissementArriveeId: "",
+  };
 
   // Charger les données au chargement de la page
   useEffect(() => {
@@ -162,536 +154,222 @@ const CreateTransfertPage: React.FC = () => {
     fetchEtablissements();
   }, [toast]);
 
-  // Filtrer les services d'arrivée lorsqu'un établissement départ est sélectionné
+  // Filtrer les services lorsqu'un établissement est sélectionné
   useEffect(() => {
-    if (formData.etablissementDepartId) {
+    // Mettre à jour les services de départ filtrés
+    if (initialData.etablissementDepartId) {
       const filteredServices = services.filter(
-        (service) => service.etablissementId === formData.etablissementDepartId
+        (service) =>
+          service.etablissementId === initialData.etablissementDepartId
       );
       setServicesDepartFiltered(filteredServices);
     } else {
       setServicesDepartFiltered(services);
     }
-  }, [formData.etablissementDepartId, services]);
 
-  // Filtrer les services d'arrivée lorsqu'un établissement arrivée est sélectionné
-  useEffect(() => {
-    if (formData.etablissementArriveeId) {
+    // Mettre à jour les services d'arrivée filtrés
+    if (initialData.etablissementArriveeId) {
       const filteredServices = services.filter(
-        (service) => service.etablissementId === formData.etablissementArriveeId
+        (service) =>
+          service.etablissementId === initialData.etablissementArriveeId
       );
       setServicesArriveeFiltered(filteredServices);
     } else {
       setServicesArriveeFiltered(services);
     }
-  }, [formData.etablissementArriveeId, services]);
+  }, [
+    initialData.etablissementDepartId,
+    initialData.etablissementArriveeId,
+    services,
+  ]);
 
-  const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ): void => {
-    const { name, value, type } = e.target;
+  const handleSubmit = async (data: typeof initialData) => {
+    // Préparer les données pour l'API
+    const transfertData = {
+      patientId: data.patientId,
+      serviceDepartId: data.serviceDepartId,
+      serviceArriveeId: data.serviceArriveeId,
+      date: data.date.toISOString(),
+      motif: data.motif,
+      statut: data.statut,
+      autorisePar: data.autorisePar,
+      realiseePar: data.realiseePar,
+      etablissementDepartId: data.etablissementDepartId,
+      etablissementArriveeId: data.etablissementArriveeId,
+    };
 
-    if (type === "date") {
-      setFormData({
-        ...formData,
-        [name]: value ? new Date(value) : new Date(),
-      });
-    } else if (
-      name === "etablissementDepartId" &&
-      value !== formData.etablissementDepartId
-    ) {
-      // Si l'établissement de départ change, réinitialiser le service de départ
-      setFormData({
-        ...formData,
-        [name]: value || null,
-        serviceDepartId: "", // Réinitialiser le service de départ
-      });
-    } else if (
-      name === "etablissementArriveeId" &&
-      value !== formData.etablissementArriveeId
-    ) {
-      // Si l'établissement d'arrivée change, réinitialiser le service d'arrivée
-      setFormData({
-        ...formData,
-        [name]: value || null,
-        serviceArriveeId: "", // Réinitialiser le service d'arrivée
-      });
-    } else {
-      setFormData({
-        ...formData,
-        [name]: value === "" ? null : value,
-      });
-    }
-  };
-
-  const validateForm = (): boolean => {
-    try {
-      transfertFormSchema.parse(formData);
-      setErrors({});
-      return true;
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        const formattedErrors: Record<string, string> = {};
-        error.errors.forEach((err) => {
-          if (err.path.length > 0) {
-            formattedErrors[err.path[0].toString()] = err.message;
-          }
-        });
-        setErrors(formattedErrors);
-      }
-      return false;
-    }
-  };
-
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
-    e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
-
-    setSubmitError(null);
-
-    try {
-      // Préparer les données pour l'API
-      const transfertData = {
-        patientId: formData.patientId,
-        serviceDepartId: formData.serviceDepartId,
-        serviceArriveeId: formData.serviceArriveeId,
-        date: formData.date.toISOString(),
-        motif: formData.motif,
-        statut: formData.statut,
-        autorisePar: formData.autorisePar,
-        realiseePar: formData.realiseePar,
-        etablissementDepartId: formData.etablissementDepartId,
-        etablissementArriveeId: formData.etablissementArriveeId,
-      };
-
-      await createTransfert(transfertData);
-
-      toast({
-        title: "Succès",
-        description: "Le transfert a été créé avec succès",
-        variant: "success",
-      });
-
-      // Redirection vers la liste des transferts après création réussie
-      navigate("/transferts");
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Erreur inconnue");
-      toast({
-        title: "Erreur",
-        description: "Impossible de créer le transfert",
-        variant: "destructive",
-      });
-    }
+    await createTransfert(transfertData);
+    navigate("/transferts");
   };
 
   // Callbacks pour les créations d'entités
-  const handlePatientCreated = (newPatient: PatientFormValues): void => {
+  const handlePatientCreated = (newPatient: PatientFormValues) => {
     setPatients((prevPatients) => [...prevPatients, newPatient]);
-    setFormData((prevData) => ({
-      ...prevData,
-      patientId: newPatient.id as string,
-    }));
   };
 
-  const handleServiceCreated = (newService: ServiceFormValues): void => {
-    setServices((prevServices) => [...prevServices, newService]);
-
-    // Si c'est le premier service ajouté, le définir comme service de départ et d'arrivée
-    if (services.length === 0) {
-      setFormData((prevData) => ({
-        ...prevData,
-        serviceDepartId: newService.id as string,
-        serviceArriveeId: newService.id as string,
-      }));
-    }
+  const handleServiceCreated = (newService: ServiceFormValues) => {
+    setServices((prevServices) => [
+      ...prevServices,
+      newService as ServiceWithEtablissement,
+    ]);
   };
 
   const handleEtablissementCreated = (
     newEtablissement: EtablissementFormValues
-  ): void => {
+  ) => {
     setEtablissements((prevEtablissements) => [
       ...prevEtablissements,
       newEtablissement,
     ]);
   };
 
+  const formSections: FormSection[] = [
+    {
+      fields: [
+        {
+          name: "patientId",
+          label: "Patient",
+          type: "select",
+          required: true,
+          options: patients.map((patient) => ({
+            value: patient.id as string,
+            label: `${patient.nom} ${patient.prenom}`,
+          })),
+          addButton: {
+            label: "+ Ajouter un patient",
+            onClick: () => setShowPatientDialog(true),
+          },
+        },
+      ],
+    },
+    {
+      title: "Départ",
+      className: "bg-gray-50 p-4 mb-6 rounded-md border border-gray-200",
+      fields: [
+        {
+          name: "etablissementDepartId",
+          label: "Établissement de départ (optionnel)",
+          type: "select",
+          options: etablissements.map((etablissement) => ({
+            value: etablissement.id as string,
+            label: etablissement.nom,
+          })),
+          addButton: {
+            label: "+ Ajouter un établissement",
+            onClick: () => setShowEtablissementDialog(true),
+          },
+        },
+        {
+          name: "serviceDepartId",
+          label: "Service de départ",
+          type: "select",
+          required: true,
+          options: servicesDepartFiltered.map((service) => ({
+            value: service.id as string,
+            label: `${service.nom} ${
+              service.etablissement ? `(${service.etablissement.nom})` : ""
+            }`,
+          })),
+          addButton: {
+            label: "+ Ajouter un service",
+            onClick: () => setShowServiceDialog(true),
+          },
+        },
+      ],
+    },
+    {
+      title: "Arrivée",
+      className: "bg-gray-50 p-4 mb-6 rounded-md border border-gray-200",
+      fields: [
+        {
+          name: "etablissementArriveeId",
+          label: "Établissement d'arrivée (optionnel)",
+          type: "select",
+          options: etablissements.map((etablissement) => ({
+            value: etablissement.id as string,
+            label: etablissement.nom,
+          })),
+          addButton: {
+            label: "+ Ajouter un établissement",
+            onClick: () => setShowEtablissementDialog(true),
+          },
+        },
+        {
+          name: "serviceArriveeId",
+          label: "Service d'arrivée",
+          type: "select",
+          required: true,
+          options: servicesArriveeFiltered.map((service) => ({
+            value: service.id as string,
+            label: `${service.nom} ${
+              service.etablissement ? `(${service.etablissement.nom})` : ""
+            }`,
+          })),
+          addButton: {
+            label: "+ Ajouter un service",
+            onClick: () => setShowServiceDialog(true),
+          },
+        },
+      ],
+    },
+    {
+      fields: [
+        {
+          name: "date",
+          label: "Date du transfert",
+          type: "date",
+          required: true,
+        },
+        {
+          name: "motif",
+          label: "Motif du transfert",
+          type: "textarea",
+          rows: 3,
+        },
+        {
+          name: "statut",
+          label: "Statut",
+          type: "select",
+          options: [
+            { value: "Planifié", label: "Planifié" },
+            { value: "En cours", label: "En cours" },
+            { value: "Validé", label: "Validé" },
+            { value: "Annulé", label: "Annulé" },
+          ],
+        },
+        {
+          name: "autorisePar",
+          label: "Autorisé par",
+          type: "text",
+        },
+        {
+          name: "realiseePar",
+          label: "Réalisé par",
+          type: "text",
+        },
+      ],
+    },
+  ];
+
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">Créer un nouveau transfert</h1>
-
-      {submitError && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 mb-4 rounded">
-          {submitError}
-        </div>
-      )}
-
-      <form
+    <>
+      <GenericForm
+        title="Créer un nouveau transfert"
+        initialData={initialData}
+        sections={formSections}
+        schema={transfertFormSchema}
         onSubmit={handleSubmit}
-        className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4"
-      >
-        {/* PatientId - Dropdown */}
-        <div className="mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <label
-              className="block text-gray-700 text-sm font-bold"
-              htmlFor="patientId"
-            >
-              Patient
-            </label>
-            <button
-              type="button"
-              className="text-blue-500 hover:text-blue-700 text-sm"
-              onClick={() => setShowPatientDialog(true)}
-            >
-              + Ajouter un patient
-            </button>
-          </div>
-          <select
-            className={`shadow appearance-none border ${
-              errors.patientId ? "border-red-500" : ""
-            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
-            id="patientId"
-            name="patientId"
-            value={formData.patientId}
-            onChange={handleChange}
-            required
-          >
-            <option value="">Sélectionnez un patient</option>
-            {patients.map((patient) => (
-              <option key={patient.id} value={patient.id}>
-                {patient.nom} {patient.prenom}
-              </option>
-            ))}
-          </select>
-          {errors.patientId && (
-            <p className="text-red-500 text-xs italic">{errors.patientId}</p>
-          )}
-        </div>
+        isSubmitting={isLoading}
+        cancelPath="/transferts"
+        submitButtonText="Créer le transfert"
+      />
 
-        {/* Groupe Établissement et Service de départ */}
-        <div className="bg-gray-50 p-4 mb-6 rounded-md border border-gray-200">
-          <h3 className="text-lg font-semibold mb-3 text-gray-700">Départ</h3>
-
-          {/* EtablissementDepartId - Dropdown (optionnel) */}
-          <div className="mb-4">
-            <div className="flex justify-between items-center mb-2">
-              <label
-                className="block text-gray-700 text-sm font-bold"
-                htmlFor="etablissementDepartId"
-              >
-                Établissement de départ (optionnel)
-              </label>
-              <button
-                type="button"
-                className="text-blue-500 hover:text-blue-700 text-sm"
-                onClick={() => setShowEtablissementDialog(true)}
-              >
-                + Ajouter un établissement
-              </button>
-            </div>
-            <select
-              className={`shadow appearance-none border ${
-                errors.etablissementDepartId ? "border-red-500" : ""
-              } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
-              id="etablissementDepartId"
-              name="etablissementDepartId"
-              value={formData.etablissementDepartId || ""}
-              onChange={handleChange}
-            >
-              <option value="">Aucun établissement spécifique</option>
-              {etablissements.map((etablissement) => (
-                <option key={etablissement.id} value={etablissement.id}>
-                  {etablissement.nom}
-                </option>
-              ))}
-            </select>
-            {errors.etablissementDepartId && (
-              <p className="text-red-500 text-xs italic">
-                {errors.etablissementDepartId}
-              </p>
-            )}
-          </div>
-
-          {/* ServiceDepartId - Dropdown */}
-          <div className="mb-4">
-            <div className="flex justify-between items-center mb-2">
-              <label
-                className="block text-gray-700 text-sm font-bold"
-                htmlFor="serviceDepartId"
-              >
-                Service de départ
-              </label>
-              <button
-                type="button"
-                className="text-blue-500 hover:text-blue-700 text-sm"
-                onClick={() => setShowServiceDialog(true)}
-              >
-                + Ajouter un service
-              </button>
-            </div>
-            <select
-              className={`shadow appearance-none border ${
-                errors.serviceDepartId ? "border-red-500" : ""
-              } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
-              id="serviceDepartId"
-              name="serviceDepartId"
-              value={formData.serviceDepartId}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Sélectionnez un service</option>
-              {servicesDepartFiltered.map((service) => (
-                <option key={service.id} value={service.id}>
-                  {service.nom}{" "}
-                  {service.etablissement && `(${service.etablissement.nom})`}
-                </option>
-              ))}
-            </select>
-            {errors.serviceDepartId && (
-              <p className="text-red-500 text-xs italic">
-                {errors.serviceDepartId}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Groupe Établissement et Service d'arrivée */}
-        <div className="bg-gray-50 p-4 mb-6 rounded-md border border-gray-200">
-          <h3 className="text-lg font-semibold mb-3 text-gray-700">Arrivée</h3>
-
-          {/* EtablissementArriveeId - Dropdown (optionnel) */}
-          <div className="mb-4">
-            <div className="flex justify-between items-center mb-2">
-              <label
-                className="block text-gray-700 text-sm font-bold"
-                htmlFor="etablissementArriveeId"
-              >
-                Établissement d'arrivée (optionnel)
-              </label>
-              <button
-                type="button"
-                className="text-blue-500 hover:text-blue-700 text-sm"
-                onClick={() => setShowEtablissementDialog(true)}
-              >
-                + Ajouter un établissement
-              </button>
-            </div>
-            <select
-              className={`shadow appearance-none border ${
-                errors.etablissementArriveeId ? "border-red-500" : ""
-              } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
-              id="etablissementArriveeId"
-              name="etablissementArriveeId"
-              value={formData.etablissementArriveeId || ""}
-              onChange={handleChange}
-            >
-              <option value="">Aucun établissement spécifique</option>
-              {etablissements.map((etablissement) => (
-                <option key={etablissement.id} value={etablissement.id}>
-                  {etablissement.nom}
-                </option>
-              ))}
-            </select>
-            {errors.etablissementArriveeId && (
-              <p className="text-red-500 text-xs italic">
-                {errors.etablissementArriveeId}
-              </p>
-            )}
-          </div>
-
-          {/* ServiceArriveeId - Dropdown */}
-          <div className="mb-4">
-            <div className="flex justify-between items-center mb-2">
-              <label
-                className="block text-gray-700 text-sm font-bold"
-                htmlFor="serviceArriveeId"
-              >
-                Service d'arrivée
-              </label>
-              <button
-                type="button"
-                className="text-blue-500 hover:text-blue-700 text-sm"
-                onClick={() => setShowServiceDialog(true)}
-              >
-                + Ajouter un service
-              </button>
-            </div>
-            <select
-              className={`shadow appearance-none border ${
-                errors.serviceArriveeId ? "border-red-500" : ""
-              } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
-              id="serviceArriveeId"
-              name="serviceArriveeId"
-              value={formData.serviceArriveeId}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Sélectionnez un service</option>
-              {servicesArriveeFiltered.map((service) => (
-                <option key={service.id} value={service.id}>
-                  {service.nom}{" "}
-                  {service.etablissement && `(${service.etablissement.nom})`}
-                </option>
-              ))}
-            </select>
-            {errors.serviceArriveeId && (
-              <p className="text-red-500 text-xs italic">
-                {errors.serviceArriveeId}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Date */}
-        <div className="mb-4">
-          <label
-            className="block text-gray-700 text-sm font-bold mb-2"
-            htmlFor="date"
-          >
-            Date du transfert
-          </label>
-          <input
-            className={`shadow appearance-none border ${
-              errors.date ? "border-red-500" : ""
-            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
-            id="date"
-            type="date"
-            name="date"
-            value={formData.date.toISOString().split("T")[0]}
-            onChange={handleChange}
-            required
-          />
-          {errors.date && (
-            <p className="text-red-500 text-xs italic">{errors.date}</p>
-          )}
-        </div>
-
-        {/* Motif */}
-        <div className="mb-4">
-          <label
-            className="block text-gray-700 text-sm font-bold mb-2"
-            htmlFor="motif"
-          >
-            Motif du transfert
-          </label>
-          <textarea
-            className={`shadow appearance-none border ${
-              errors.motif ? "border-red-500" : ""
-            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
-            id="motif"
-            name="motif"
-            value={formData.motif || ""}
-            onChange={handleChange}
-            rows={3}
-          />
-          {errors.motif && (
-            <p className="text-red-500 text-xs italic">{errors.motif}</p>
-          )}
-        </div>
-
-        {/* Statut */}
-        <div className="mb-4">
-          <label
-            className="block text-gray-700 text-sm font-bold mb-2"
-            htmlFor="statut"
-          >
-            Statut
-          </label>
-          <select
-            className={`shadow appearance-none border ${
-              errors.statut ? "border-red-500" : ""
-            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
-            id="statut"
-            name="statut"
-            value={formData.statut || "Planifié"}
-            onChange={handleChange}
-          >
-            <option value="Planifié">Planifié</option>
-            <option value="En cours">En cours</option>
-            <option value="Validé">Validé</option>
-            <option value="Annulé">Annulé</option>
-          </select>
-          {errors.statut && (
-            <p className="text-red-500 text-xs italic">{errors.statut}</p>
-          )}
-        </div>
-
-        {/* AutorisePar */}
-        <div className="mb-4">
-          <label
-            className="block text-gray-700 text-sm font-bold mb-2"
-            htmlFor="autorisePar"
-          >
-            Autorisé par
-          </label>
-          <input
-            className={`shadow appearance-none border ${
-              errors.autorisePar ? "border-red-500" : ""
-            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
-            id="autorisePar"
-            type="text"
-            name="autorisePar"
-            value={formData.autorisePar || ""}
-            onChange={handleChange}
-          />
-          {errors.autorisePar && (
-            <p className="text-red-500 text-xs italic">{errors.autorisePar}</p>
-          )}
-        </div>
-
-        {/* RealisePar */}
-        <div className="mb-4">
-          <label
-            className="block text-gray-700 text-sm font-bold mb-2"
-            htmlFor="realiseePar"
-          >
-            Réalisé par
-          </label>
-          <input
-            className={`shadow appearance-none border ${
-              errors.realiseePar ? "border-red-500" : ""
-            } rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
-            id="realiseePar"
-            type="text"
-            name="realiseePar"
-            value={formData.realiseePar || ""}
-            onChange={handleChange}
-          />
-          {errors.realiseePar && (
-            <p className="text-red-500 text-xs italic">{errors.realiseePar}</p>
-          )}
-        </div>
-
-        {/* Boutons */}
-        <div className="flex items-center justify-between">
-          <Button
-            type="submit"
-            className="bg-blue-500 hover:bg-blue-700 text-white"
-            disabled={isLoading}
-          >
-            {isLoading ? "Création en cours..." : "Créer le transfert"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="bg-gray-500 hover:bg-gray-700 text-white"
-            onClick={() => navigate("/transferts")}
-          >
-            Annuler
-          </Button>
-        </div>
-      </form>
-
-      {/* Intégration des composants Dialog avec callbacks */}
       <PatientDialog onPatientCreated={handlePatientCreated} />
       <ServiceDialog onServiceCreated={handleServiceCreated} />
       <EtablissementDialog
         onEtablissementCreated={handleEtablissementCreated}
       />
-    </div>
+    </>
   );
 };
 

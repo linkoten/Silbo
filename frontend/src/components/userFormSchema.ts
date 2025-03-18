@@ -17,16 +17,16 @@ export const patientFormSchema = z.object({
   nom: z.string().min(1, { message: "Le nom est requis" }),
   prenom: z.string().min(1, { message: "Le prénom est requis" }),
   dateNaissance: z.coerce.date(),
-  adresse: z.string().nullable(),
-  telephone: z.string().nullable(),
-  email: z.string().email({ message: "Format d'email invalide" }).nullable(),
-  numeroSecu: z.string().nullable(),
-  groupeSanguin: z.string().nullable(),
-  allergie: z.string().nullable(),
-  antecedents: z.string().nullable(),
-  dateAdmission: z.coerce.date().nullable(),
-  dateSortie: z.coerce.date().nullable(),
-  statut: z.string().nullable().default("Hospitalisé"),
+  adresse: z.string(),
+  telephone: z.string(),
+  email: z.string().email({ message: "Format d'email invalide" }),
+  numeroSecu: z.string(),
+  groupeSanguin: z.string(),
+  allergie: z.string(),
+  antecedents: z.string(),
+  dateAdmission: z.coerce.date(),
+  dateSortie: z.coerce.date(),
+  statut: z.string(),
 });
 
 export type PatientFormValues = z.infer<typeof patientFormSchema>;
@@ -35,12 +35,12 @@ export type PatientFormValues = z.infer<typeof patientFormSchema>;
 export const litFormSchema = z.object({
   id: z.string().optional(),
   numeroLit: z.string().min(1, { message: "Le numéro du lit est requis" }),
-  type: z.string().nullable(),
-  statut: z.string().nullable().default("Disponible"),
+  type: z.string(),
+  statut: z.string(),
   serviceId: z.string().min(1, { message: "Le service est requis" }),
-  chambre: z.string().nullable(),
-  etage: z.string().nullable(),
-  patientId: z.string().nullable(),
+  chambre: z.string(),
+  etage: z.string(),
+  patientId: z.string(),
 });
 export type LitFormValues = z.infer<typeof litFormSchema>;
 
@@ -48,33 +48,33 @@ export type LitFormValues = z.infer<typeof litFormSchema>;
 export const serviceFormSchema = z.object({
   id: z.string().optional(),
   nom: z.string().min(1, { message: "Le nom du service est requis" }),
-  description: z.string().nullable(),
+  description: z.string(),
   etablissementId: z.string().min(1, { message: "L'établissement est requis" }),
-  etage: z.string().nullable(),
-  aile: z.string().nullable(),
-  capacite: z.number().int().nonnegative().default(0),
-  statut: z.string().nullable().default("Actif"),
-  specialite: z.string().nullable(),
-  responsableId: z.string().nullable(),
+  etage: z.string(),
+  aile: z.string(),
+  capacite: z.number().int().nonnegative(),
+  statut: z.string(),
+  specialite: z.string(),
+  responsableId: z.string(),
 });
 
 export type ServiceFormValues = z.infer<typeof serviceFormSchema>;
 
 // Personnel schema
 export const personnelFormSchema = z.object({
-  id: z.string().optional(),
+  id: z.string(),
   nom: z.string().min(1, { message: "Le nom est requis" }),
   prenom: z.string().min(1, { message: "Le prénom est requis" }),
-  dateNaissance: z.coerce.date().nullable(),
-  email: z.string().email({ message: "Format d'email invalide" }).nullable(),
-  telephone: z.string().nullable(),
+  dateNaissance: z.coerce.date(),
+  email: z.string().email({ message: "Format d'email invalide" }),
+  telephone: z.string(),
   profession: z.string().min(1, { message: "La profession est requise" }),
-  specialite: z.string().nullable(),
-  matricule: z.string().nullable(),
-  serviceId: z.string().nullable(),
-  dateEmbauche: z.coerce.date().nullable(),
-  statut: z.string().nullable().default("Actif"),
-  etablissementId: z.string().nullable(),
+  specialite: z.string(),
+  matricule: z.string(),
+  serviceId: z.string(),
+  dateEmbauche: z.coerce.date(),
+  statut: z.string(),
+  etablissementId: z.string(),
 });
 
 export type PersonnelFormValues = z.infer<typeof personnelFormSchema>;
@@ -89,31 +89,31 @@ export const transfertFormSchema = z.object({
     .string()
     .min(1, { message: "Le service d'arrivée est requis" }),
   patientId: z.string().min(1, { message: "Le patient est requis" }),
-  motif: z.string().nullable(),
-  date: z.coerce.date().default(() => new Date()),
-  statut: z.string().nullable().default("Planifié"),
-  autorisePar: z.string().nullable(),
-  realiseePar: z.string().nullable(),
-  etablissementDepartId: z.string().nullable(),
-  etablissementArriveeId: z.string().nullable(),
+  motif: z.string(),
+  date: z.coerce.date(),
+  statut: z.string(),
+  autorisePar: z.string(),
+  realiseePar: z.string(),
+  etablissementDepartId: z.string(),
+  etablissementArriveeId: z.string(),
 });
 
 export type TransfertFormValues = z.infer<typeof transfertFormSchema>;
 
 // Materiel schema
 export const materielFormSchema = z.object({
-  id: z.string().optional(),
+  id: z.string(),
   nom: z.string().min(1, { message: "Le nom du matériel est requis" }),
-  description: z.string().nullable(),
-  quantite: z.number().int().positive().default(1),
-  type: z.string().nullable(),
-  marque: z.string().nullable(),
-  modele: z.string().nullable(),
-  numeroSerie: z.string().nullable(),
-  dateAchat: z.coerce.date().nullable(),
-  dateMaintenance: z.coerce.date().nullable(),
-  statut: z.string().nullable().default("En Service"),
-  serviceId: z.string().nullable(),
+  description: z.string(),
+  quantite: z.number().int().positive(),
+  type: z.string(),
+  marque: z.string(),
+  modele: z.string(),
+  numeroSerie: z.string(),
+  dateAchat: z.coerce.date(),
+  dateMaintenance: z.coerce.date(),
+  statut: z.string(),
+  serviceId: z.string(),
 });
 
 export type MaterielFormValues = z.infer<typeof materielFormSchema>;
@@ -123,15 +123,15 @@ export const etablissementFormSchema = z.object({
   id: z.string().min(1).optional(),
   nom: z.string().min(1, { message: "Le nom de l'établissement est requis" }),
   adresse: z.string().min(1, { message: "L'adresse est requise" }),
-  capacite: z.number().int().nonnegative().default(0),
-  telephone: z.string().nullable(),
-  email: z.string().email({ message: "Format d'email invalide" }).nullable(),
-  siteWeb: z.string().url({ message: "URL invalide" }).nullable(),
-  codePostal: z.string().nullable(),
-  ville: z.string().nullable(),
-  pays: z.string().default("France"),
-  statut: z.string().nullable().default("Actif"),
-  typology: z.string().nullable(),
+  capacite: z.number().int().nonnegative(),
+  telephone: z.string(),
+  email: z.string().email({ message: "Format d'email invalide" }),
+  siteWeb: z.string().url({ message: "URL invalide" }),
+  codePostal: z.string(),
+  ville: z.string(),
+  pays: z.string(),
+  statut: z.string(),
+  typology: z.string(),
 });
 
 export type EtablissementFormValues = z.infer<typeof etablissementFormSchema>;
@@ -141,12 +141,12 @@ export const priseEnChargeFormSchema = z.object({
   id: z.string().optional(),
   personnelId: z.string().min(1, { message: "Le personnel est requis" }),
   patientId: z.string().min(1, { message: "Le patient est requis" }),
-  dateDebut: z.coerce.date().default(() => new Date()),
-  dateFin: z.coerce.date().nullable(),
-  description: z.string().nullable(),
-  diagnostic: z.string().nullable(),
-  traitement: z.string().nullable(),
-  notes: z.string().nullable(),
+  dateDebut: z.coerce.date(),
+  dateFin: z.coerce.date(),
+  description: z.string(),
+  diagnostic: z.string(),
+  traitement: z.string(),
+  notes: z.string(),
 });
 
 export type PriseEnChargeFormValues = z.infer<typeof priseEnChargeFormSchema>;
@@ -154,11 +154,11 @@ export type PriseEnChargeFormValues = z.infer<typeof priseEnChargeFormSchema>;
 // ReservationLit schema
 export const reservationLitFormSchema = z.object({
   id: z.string().min(1).optional(),
-  patientId: z.string().nullable(),
-  litId: z.string().min(1).nullable(),
+  patientId: z.string(),
+  litId: z.string().min(1),
   dateArrivee: z.coerce.date(),
   dateDepart: z.coerce.date(),
-  etablissementDestinationId: z.string().min(1).nullable(),
+  etablissementDestinationId: z.string().min(1),
 });
 
 export type ReservationLitFormValues = z.infer<typeof reservationLitFormSchema>;
