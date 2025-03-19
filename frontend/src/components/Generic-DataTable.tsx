@@ -1,73 +1,65 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from "react";
+import type React from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 
 export type ColumnConfig<T> = {
   key: string;
   header: string;
-  render?: (item: T) => ReactNode;
+  render?: (item: T) => React.ReactNode;
   sortable?: boolean;
 };
 
 export type ActionConfig<T> = {
   label: string;
-  to?: string;
-  onClick?: (item: T) => void;
-  color?: "blue" | "yellow" | "red" | "green" | "indigo" | "gray";
-  icon?: ReactNode;
+  onClick: (item: T) => void;
+  className?: string;
   showCondition?: (item: T) => boolean;
 };
 
-export type GenericListPageProps<T> = {
-  // Titre et configuration
+export type GenericDataTableProps<T> = {
   title: string;
+  entityName: string;
+  entityNamePlural: string;
   createPath: string;
-  createButtonLabel: string;
-
-  // Données et état
   data: T[];
   isLoading: boolean;
   error: string | null;
-
-  // Colonnes et actions
   columns: ColumnConfig<T>[];
   actions: ActionConfig<T>[];
-
-  // Fonctions
   fetchData: () => void;
-  onRowClick?: (item: T) => void;
-
-  // Recherche
   searchPlaceholder?: string;
   searchKeys?: (keyof T)[];
-
-  // Messages
   emptyStateMessage?: string;
-  loadingMessage?: string;
-
-  // Identifiant
+  detailsPath?: (id: string) => string;
+  editPath?: (id: string) => string;
+  onDelete?: (id: string) => Promise<boolean>;
+  customRowClick?: (item: T) => void;
   idField?: keyof T;
 };
 
-export function GenericListPage<T extends { id: string }>({
+export function GenericDataTable<T extends { id: string }>({
   title,
+  entityName,
+  entityNamePlural,
   createPath,
-  createButtonLabel,
   data,
   isLoading,
   error,
   columns,
   actions,
   fetchData,
-  onRowClick,
-  searchPlaceholder = "Rechercher...",
+  searchPlaceholder = `Rechercher...`,
   searchKeys,
-  emptyStateMessage = "Aucun élément disponible",
-  loadingMessage = "Chargement des données...",
+  emptyStateMessage,
+  detailsPath,
+  editPath,
+  onDelete,
+  customRowClick,
   idField = "id" as keyof T,
-}: GenericListPageProps<T>) {
+}: GenericDataTableProps<T>) {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [filteredData, setFilteredData] = useState<T[]>(data);
@@ -76,7 +68,7 @@ export function GenericListPage<T extends { id: string }>({
   );
   const [showColumnSelector, setShowColumnSelector] = useState<boolean>(false);
 
-  // Mettre à jour les données filtrées lorsque la recherche ou les données changent
+  // Update filtered data when search term or data changes
   useEffect(() => {
     if (!data) return;
 
@@ -85,7 +77,7 @@ export function GenericListPage<T extends { id: string }>({
     } else {
       const filtered = data.filter((item) => {
         if (!searchKeys) {
-          // Recherche dans toutes les propriétés string si searchKeys n'est pas fourni
+          // Search all string properties if searchKeys not provided
           return Object.keys(item).some((key) => {
             const value = item[key as keyof T];
             return (
@@ -113,48 +105,73 @@ export function GenericListPage<T extends { id: string }>({
     }
   };
 
-  // Tri des colonnes visibles pour qu'elles apparaissent dans le même ordre que dans la définition originale
+  // Sort visible columns to match original order
   const sortedVisibleColumns = columns.filter((col) =>
     visibleColumns.includes(col.key)
   );
 
-  // État de chargement
+  const handleDelete = async (id: string) => {
+    if (!onDelete) return;
+
+    if (window.confirm(`Êtes-vous sûr de vouloir supprimer cet élément ?`)) {
+      try {
+        const success = await onDelete(id);
+        if (success) {
+          toast({
+            title: "Succès",
+            description: `${entityName} a été supprimé avec succès`,
+            variant: "success",
+          });
+        }
+      } catch (err) {
+        toast({
+          title: "Erreur",
+          description: `Impossible de supprimer ${entityName.toLowerCase()}`,
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  // Loading state
   if (isLoading) {
     return (
-      <div className="container mx-auto p-4 flex justify-center items-center h-64">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-lg text-gray-700">{loadingMessage}</p>
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <span className="ml-3 text-lg font-medium text-gray-700">
+            Chargement des {entityNamePlural.toLowerCase()}...
+          </span>
         </div>
       </div>
     );
   }
 
-  // État d'erreur
+  // Error state
   if (error) {
     return (
-      <div className="container mx-auto p-4">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
-          <strong className="font-bold">Erreur!</strong>
-          <span className="block sm:inline"> {error}</span>
-          <button
-            className="mt-2 bg-red-200 hover:bg-red-300 text-red-800 py-1 px-3 rounded"
-            onClick={() => fetchData()}
-          >
-            Réessayer
-          </button>
+      <div className="container mx-auto p-6">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
+          <p className="font-bold">Erreur</p>
+          <p>{error}</p>
         </div>
+        <button
+          onClick={() => fetchData()}
+          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+        >
+          Réessayer
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">{title}</h1>
         <Link
           to={createPath}
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center"
+          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center"
         >
           <svg
             className="w-5 h-5 mr-2"
@@ -169,10 +186,11 @@ export function GenericListPage<T extends { id: string }>({
               d="M12 6v6m0 0v6m0-6h6m-6 0H6"
             ></path>
           </svg>
-          {createButtonLabel}
+          Ajouter {entityName.toLowerCase()}
         </Link>
       </div>
 
+      {/* Search and column selector */}
       <div className="flex justify-between items-center mb-4">
         <div className="relative w-64">
           <input
@@ -245,102 +263,114 @@ export function GenericListPage<T extends { id: string }>({
         </div>
       </div>
 
+      {/* Empty state */}
       {filteredData.length === 0 ? (
-        <div className="bg-white shadow-md rounded p-8 text-center">
-          <p>
+        <div className="bg-white shadow rounded-lg p-8 text-center">
+          <p className="text-xl text-gray-600">
             {searchTerm
-              ? `Aucun élément ne correspond à votre recherche.`
-              : emptyStateMessage}
+              ? `Aucun ${entityName.toLowerCase()} ne correspond à votre recherche.`
+              : emptyStateMessage ||
+                `Aucun ${entityName.toLowerCase()} trouvé.`}
+          </p>
+          <p className="text-gray-500 mt-2">
+            {searchTerm ? "Modifiez votre recherche ou " : ""}
+            Ajoutez {entityName.toLowerCase()} pour commencer
           </p>
         </div>
       ) : (
-        <div className="bg-white shadow-md rounded my-6 overflow-x-auto">
-          <table className="min-w-full table-auto">
-            <thead>
-              <tr className="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
+        <div className="overflow-x-auto bg-white shadow-md rounded-lg">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
                 {sortedVisibleColumns.map((column) => (
-                  <th key={column.key} className="py-3 px-6 text-left">
+                  <th
+                    key={column.key}
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
                     {column.header}
                   </th>
                 ))}
-                <th className="py-3 px-6 text-center">Actions</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
-            <tbody className="text-gray-600 text-sm font-light">
+            <tbody className="divide-y divide-gray-200">
               {filteredData.map((item) => (
                 <tr
                   key={String(item[idField])}
-                  className="border-b border-gray-200 hover:bg-gray-100 cursor-pointer"
-                  onClick={() => onRowClick && onRowClick(item)}
+                  className="hover:bg-gray-50 cursor-pointer"
+                  onClick={() => customRowClick && customRowClick(item)}
                 >
                   {sortedVisibleColumns.map((column) => (
                     <td
                       key={`${String(item[idField])}-${column.key}`}
-                      className="py-3 px-6 text-left"
+                      className="px-6 py-4 whitespace-nowrap"
                     >
                       {column.render
                         ? column.render(item)
-                        : item[column.key as keyof typeof item] !== undefined
-                        ? String(item[column.key as keyof typeof item])
-                        : ""}
+                        : String(
+                            (item as any)[column.key] !== undefined
+                              ? (item as any)[column.key]
+                              : ""
+                          )}
                     </td>
                   ))}
                   <td
-                    className="py-3 px-6 text-center"
+                    className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="flex items-center justify-center space-x-2">
-                      {actions.map((action, index) => {
-                        // Vérifier si l'action doit être affichée
-                        if (
-                          action.showCondition &&
-                          !action.showCondition(item)
-                        ) {
-                          return null;
-                        }
-
-                        // Déterminer la classe de couleur
-                        const colorClass =
-                          action.color === "yellow"
-                            ? "bg-yellow-500 hover:bg-yellow-700"
-                            : action.color === "red"
-                            ? "bg-red-500 hover:bg-red-700"
-                            : action.color === "green"
-                            ? "bg-green-500 hover:bg-green-700"
-                            : action.color === "indigo"
-                            ? "bg-indigo-500 hover:bg-indigo-700"
-                            : action.color === "gray"
-                            ? "bg-gray-500 hover:bg-gray-700"
-                            : "bg-blue-500 hover:bg-blue-700";
-
-                        // Rendu du bouton ou du lien
-                        return action.to ? (
-                          <Link
-                            key={index}
-                            to={action.to.replace(":id", String(item[idField]))}
-                            className={`${colorClass} text-white py-1 px-2 rounded text-xs flex items-center`}
-                          >
-                            {action.icon && (
-                              <span className="mr-1">{action.icon}</span>
-                            )}
-                            {action.label}
-                          </Link>
-                        ) : (
+                    {detailsPath && (
+                      <Link
+                        to={detailsPath(String(item[idField]))}
+                        className="text-blue-600 hover:text-blue-900 mr-3"
+                      >
+                        Détails
+                      </Link>
+                    )}
+                    {editPath && (
+                      <Link
+                        to={editPath(String(item[idField]))}
+                        className="text-indigo-600 hover:text-indigo-900 mr-3"
+                      >
+                        Modifier
+                      </Link>
+                    )}
+                    {actions.map((action, index) =>
+                      action.showCondition ? (
+                        action.showCondition(item) && (
                           <button
                             key={index}
-                            onClick={() =>
-                              action.onClick && action.onClick(item)
+                            onClick={() => action.onClick(item)}
+                            className={
+                              action.className ||
+                              "text-green-600 hover:text-green-900 mr-3"
                             }
-                            className={`${colorClass} text-white py-1 px-2 rounded text-xs flex items-center`}
                           >
-                            {action.icon && (
-                              <span className="mr-1">{action.icon}</span>
-                            )}
                             {action.label}
                           </button>
-                        );
-                      })}
-                    </div>
+                        )
+                      ) : (
+                        <button
+                          key={index}
+                          onClick={() => action.onClick(item)}
+                          className={
+                            action.className ||
+                            "text-green-600 hover:text-green-900 mr-3"
+                          }
+                        >
+                          {action.label}
+                        </button>
+                      )
+                    )}
+                    {onDelete && (
+                      <button
+                        onClick={() => handleDelete(String(item[idField]))}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Supprimer
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
