@@ -102,7 +102,7 @@ export type TransfertFormValues = z.infer<typeof transfertFormSchema>;
 
 // Materiel schema
 export const materielFormSchema = z.object({
-  id: z.string(),
+  id: z.string().optional(),
   nom: z.string().min(1, { message: "Le nom du matériel est requis" }),
   description: z.string(),
   quantite: z.number().int().positive(),
