@@ -1,5 +1,4 @@
 import * as React from "react";
-
 import type { ToastActionElement, ToastProps } from "@/components/ui/toast";
 
 const TOAST_LIMIT = 5;
@@ -10,7 +9,6 @@ type ToasterToast = ToastProps & {
   title?: React.ReactNode;
   description?: React.ReactNode;
   action?: ToastActionElement;
-  sound?: boolean;
 };
 
 const actionTypes = {
@@ -88,8 +86,6 @@ export const reducer = (state: State, action: Action): State => {
     case "DISMISS_TOAST": {
       const { toastId } = action;
 
-      // ! Side effects ! - This could be extracted into a dismissToast() action,
-      // but I'll keep it here for simplicity
       if (toastId) {
         addToRemoveQueue(toastId);
       } else {
@@ -139,15 +135,6 @@ interface Toast extends Omit<ToasterToast, "id"> {}
 
 function toast({ ...props }: Toast) {
   const id = genId();
-
-  // Play sound if sound option is true
-  if (props.sound) {
-    const audio = new Audio("/notification.mp3");
-    audio.play().catch((error) => {
-      // Handle any errors (e.g. browser doesn't allow audio without user interaction)
-      console.error("Erreur lors de la lecture du son:", error);
-    });
-  }
 
   const update = (props: ToasterToast) =>
     dispatch({

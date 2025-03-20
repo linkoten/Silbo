@@ -116,6 +116,8 @@ export function GenericForm<T extends Record<string, any>>({
         description: "Enregistrement réussi",
         variant: "success",
       });
+      // Redirect after successful form submission
+      navigate(cancelPath);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Erreur inconnue";
